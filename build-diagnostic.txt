@@ -1,0 +1,1 @@
+Diagnostic build trigger for native Android v2.0.0\n

@@ -68,17 +68,17 @@ private val Vazirmatn = FontFamily(
 )
 
 private val DeweyTypography = Typography(
-    displaySmall = TextStyle(Vazirmatn, FontWeight.SemiBold, 30.sp, lineHeight = 42.sp),
-    headlineSmall = TextStyle(Vazirmatn, FontWeight.SemiBold, 24.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(Vazirmatn, FontWeight.SemiBold, 20.sp, lineHeight = 30.sp),
-    titleMedium = TextStyle(Vazirmatn, FontWeight.SemiBold, 16.sp, lineHeight = 26.sp),
-    titleSmall = TextStyle(Vazirmatn, FontWeight.Medium, 14.sp, lineHeight = 22.sp),
-    bodyLarge = TextStyle(Vazirmatn, FontWeight.Normal, 16.sp, lineHeight = 28.sp),
-    bodyMedium = TextStyle(Vazirmatn, FontWeight.Normal, 14.sp, lineHeight = 24.sp),
-    bodySmall = TextStyle(Vazirmatn, FontWeight.Normal, 12.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(Vazirmatn, FontWeight.SemiBold, 14.sp, lineHeight = 22.sp),
-    labelMedium = TextStyle(Vazirmatn, FontWeight.Medium, 12.sp, lineHeight = 18.sp),
-    labelSmall = TextStyle(Vazirmatn, FontWeight.Medium, 11.sp, lineHeight = 16.sp),
+    displaySmall = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 42.sp),
+    headlineSmall = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 34.sp),
+    titleLarge = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 30.sp),
+    titleMedium = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 26.sp),
+    titleSmall = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 22.sp),
+    bodyLarge = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 28.sp),
+    bodyMedium = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 24.sp),
+    bodySmall = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 20.sp),
+    labelLarge = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 22.sp),
+    labelMedium = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
+    labelSmall = TextStyle(fontFamily = Vazirmatn, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
 )
 
 private val DeweyShapes = Shapes(
