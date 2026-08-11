@@ -11,9 +11,10 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,30 +36,39 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Run unit tests
+        run: gradle --no-daemon testDebugUnitTest
+
+      - name: Run Android lint
+        run: gradle --no-daemon lintDebug
+
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
-      - name: Prepare APK
+      - name: Prepare installable package
         run: |
           mkdir -p apk
-          cp app/build/outputs/apk/debug/app-debug.apk apk/ChidemanYar-Dewey-v1.0.0.apk
-          sha256sum apk/ChidemanYar-Dewey-v1.0.0.apk > apk/ChidemanYar-Dewey-v1.0.0.sha256
+          cp app/build/outputs/apk/debug/app-debug.apk apk/ChidemanYar-Dewey-v2.0.0.apk
+          sha256sum apk/ChidemanYar-Dewey-v2.0.0.apk > apk/ChidemanYar-Dewey-v2.0.0.sha256
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ChidemanYar-Dewey-v1.0.0
-          path: apk/ChidemanYar-Dewey-v1.0.0.apk
+          name: ChidemanYar-Dewey-v2.0.0
+          path: |
+            apk/ChidemanYar-Dewey-v2.0.0.apk
+            apk/ChidemanYar-Dewey-v2.0.0.sha256
           if-no-files-found: error
 
       - name: Publish APK to repository
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apk/ChidemanYar-Dewey-v1.0.0.apk apk/ChidemanYar-Dewey-v1.0.0.sha256
+          git add apk/ChidemanYar-Dewey-v2.0.0.apk apk/ChidemanYar-Dewey-v2.0.0.sha256
           if git diff --cached --quiet; then
             echo 'APK is already current.'
           else
-            git commit -m 'افزودن APK نسخه 1.0.0 [skip ci]'
+            git commit -m 'افزودن APK نسخه 2.0.0 [skip ci]'
             git push
           fi
+
