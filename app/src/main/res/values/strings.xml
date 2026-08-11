@@ -38,6 +38,7 @@
     <string name="optional_information">اطلاعات تکمیلی</string>
     <string name="book_title_label">عنوان کتاب</string>
     <string name="book_title_hint">مثلاً تاریخ ایران</string>
+    <string name="random_book_helper">برای هر کتاب یک شماره تصادفی ساخته می‌شود و قابل ویرایش است.</string>
     <string name="main_class_label">شماره اصلی رده</string>
     <string name="main_class_hint">۰۰۰ تا ۹۹۹</string>
     <string name="decimal_label">اعشار رده</string>
@@ -123,7 +124,7 @@
     <string name="call_number">شماره عطف</string>
     <string name="row_number">ردیف %1$s</string>
     <string name="book_options">گزینه‌های کتاب %1$s</string>
-    <string name="app_version">نسخه ۲.۰.۰</string>
+    <string name="app_version">نسخه ۲.۱.۰</string>
     <string name="database_status">ذخیره امن در پایگاه‌داده داخلی</string>
     <string name="saving">در حال ذخیره…</string>
     <string name="optional">اختیاری</string>

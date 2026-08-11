@@ -4,6 +4,12 @@ import ir.deweyshelf.app.core.digitsOnly
 import ir.deweyshelf.app.core.firstNormalizedCharacter
 import ir.deweyshelf.app.core.normalizePersian
 import ir.deweyshelf.app.core.toPersianDigits
+import kotlin.random.Random
+
+object BookIdentifierGenerator {
+    fun next(random: Random = Random.Default): String =
+        "کتاب ${random.nextInt(from = 100_000, until = 1_000_000).toString().toPersianDigits()}"
+}
 
 data class DeweyBook(
     val id: Long = 0,
@@ -140,4 +146,3 @@ data class DeweyClassInfo(
     val start: Int,
     val endInclusive: Int,
 )
-

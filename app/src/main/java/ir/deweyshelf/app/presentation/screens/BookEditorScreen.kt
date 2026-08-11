@@ -28,14 +28,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -43,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.deweyshelf.app.R
 import ir.deweyshelf.app.core.DeweySpacing
+import ir.deweyshelf.app.domain.BookIdentifierGenerator
 import ir.deweyshelf.app.domain.BookDraft
 import ir.deweyshelf.app.domain.DeweyBook
 import ir.deweyshelf.app.domain.FormField
@@ -50,6 +57,7 @@ import ir.deweyshelf.app.domain.ValidationError
 import ir.deweyshelf.app.presentation.SaveResult
 import ir.deweyshelf.app.presentation.components.SectionHeader
 import ir.deweyshelf.app.presentation.components.SpinePreview
+import kotlinx.coroutines.delay
 
 private val BookDraftSaver = listSaver<BookDraft, String>(
     save = {
@@ -88,7 +96,10 @@ fun BookEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     var draft by rememberSaveable(existing?.id, stateSaver = BookDraftSaver) {
-        mutableStateOf(existing?.let { BookDraft.from(it) } ?: BookDraft())
+        mutableStateOf(
+            existing?.let { BookDraft.from(it) }
+                ?: BookDraft(title = BookIdentifierGenerator.next()),
+        )
     }
     var errors by remember { mutableStateOf<Map<FormField, ValidationError>>(emptyMap()) }
     var showDuplicateDialog by rememberSaveable { mutableStateOf(false) }
@@ -158,6 +169,7 @@ fun BookEditorScreen(
                         errors = errors - field
                     },
                     onDone = { submit() },
+                    isNewBook = existing == null,
                     modifier = childModifier,
                 )
             }
@@ -201,8 +213,26 @@ private fun FormContent(
     errors: Map<FormField, ValidationError>,
     onChange: (FormField, String) -> Unit,
     onDone: () -> Unit,
+    isNewBook: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val titleFocus = remember { FocusRequester() }
+    val mainClassFocus = remember { FocusRequester() }
+    val decimalFocus = remember { FocusRequester() }
+    val authorLetterFocus = remember { FocusRequester() }
+    val authorNumberFocus = remember { FocusRequester() }
+    val workMarkFocus = remember { FocusRequester() }
+    val volumeFocus = remember { FocusRequester() }
+    val copyFocus = remember { FocusRequester() }
+    val yearFocus = remember { FocusRequester() }
+
+    LaunchedEffect(isNewBook) {
+        if (isNewBook) {
+            delay(250)
+            mainClassFocus.requestFocus()
+        }
+    }
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(DeweySpacing.md)) {
         FormSection(title = stringResource(R.string.book_information)) {
             DeweyTextField(
@@ -210,7 +240,10 @@ private fun FormContent(
                 onValueChange = { onChange(FormField.Title, it) },
                 label = stringResource(R.string.book_title_label),
                 placeholder = stringResource(R.string.book_title_hint),
+                helper = if (isNewBook) stringResource(R.string.random_book_helper) else null,
                 error = errors[FormField.Title],
+                focusRequester = titleFocus,
+                nextFocusRequester = mainClassFocus,
             )
         }
 
@@ -224,6 +257,10 @@ private fun FormContent(
                     helper = stringResource(R.string.main_class_helper),
                     keyboardType = KeyboardType.Number,
                     error = errors[FormField.MainClass],
+                    focusRequester = mainClassFocus,
+                    nextFocusRequester = decimalFocus,
+                    autoAdvanceLength = 3,
+                    autoAdvanceAfterPause = true,
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -234,6 +271,9 @@ private fun FormContent(
                     helper = stringResource(R.string.decimal_helper),
                     keyboardType = KeyboardType.Number,
                     error = errors[FormField.DecimalPart],
+                    focusRequester = decimalFocus,
+                    nextFocusRequester = authorLetterFocus,
+                    autoAdvanceAfterPause = true,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -244,6 +284,9 @@ private fun FormContent(
                     label = stringResource(R.string.author_letter_label),
                     placeholder = stringResource(R.string.author_letter_hint),
                     error = errors[FormField.AuthorLetter],
+                    focusRequester = authorLetterFocus,
+                    nextFocusRequester = authorNumberFocus,
+                    autoAdvanceLength = 1,
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -254,6 +297,9 @@ private fun FormContent(
                     helper = stringResource(R.string.author_number_helper),
                     keyboardType = KeyboardType.Number,
                     error = errors[FormField.AuthorNumber],
+                    focusRequester = authorNumberFocus,
+                    nextFocusRequester = workMarkFocus,
+                    autoAdvanceAfterPause = true,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -263,6 +309,9 @@ private fun FormContent(
                 label = stringResource(R.string.work_mark_label),
                 placeholder = stringResource(R.string.work_mark_hint),
                 error = errors[FormField.WorkMark],
+                focusRequester = workMarkFocus,
+                nextFocusRequester = volumeFocus,
+                autoAdvanceLength = 1,
             )
         }
 
@@ -274,6 +323,9 @@ private fun FormContent(
                     label = stringResource(R.string.volume_label),
                     keyboardType = KeyboardType.Number,
                     error = errors[FormField.Volume],
+                    focusRequester = volumeFocus,
+                    nextFocusRequester = copyFocus,
+                    autoAdvanceAfterPause = true,
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -282,6 +334,9 @@ private fun FormContent(
                     label = stringResource(R.string.copy_label),
                     keyboardType = KeyboardType.Number,
                     error = errors[FormField.CopyNumber],
+                    focusRequester = copyFocus,
+                    nextFocusRequester = yearFocus,
+                    autoAdvanceAfterPause = true,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -291,6 +346,7 @@ private fun FormContent(
                 label = stringResource(R.string.year_label),
                 keyboardType = KeyboardType.Number,
                 error = errors[FormField.PublicationYear],
+                focusRequester = yearFocus,
                 isLast = true,
                 onDone = onDone,
             )
@@ -329,15 +385,45 @@ private fun DeweyTextField(
     helper: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     error: ValidationError? = null,
+    focusRequester: FocusRequester? = null,
+    nextFocusRequester: FocusRequester? = null,
+    autoAdvanceLength: Int? = null,
+    autoAdvanceAfterPause: Boolean = false,
     isLast: Boolean = false,
     onDone: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val supporting = error?.let { validationText(it) } ?: helper
+    var isFocused by remember { mutableStateOf(false) }
+    var editRevision by remember { mutableIntStateOf(0) }
+    val currentlyFocused by rememberUpdatedState(isFocused)
+    val moveNext by rememberUpdatedState<() -> Unit> {
+        nextFocusRequester?.requestFocus() ?: focusManager.moveFocus(FocusDirection.Next)
+    }
+
+    LaunchedEffect(editRevision, value) {
+        if (editRevision == 0 || value.isBlank() || isLast || !currentlyFocused) return@LaunchedEffect
+        val enteredLength = value.count { !it.isWhitespace() }
+        if (autoAdvanceLength != null && enteredLength >= autoAdvanceLength) {
+            moveNext()
+        } else if (autoAdvanceAfterPause) {
+            delay(AUTO_ADVANCE_DELAY_MS)
+            if (currentlyFocused) moveNext()
+        }
+    }
+
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
+        onValueChange = { newValue ->
+            if (newValue != value) {
+                onValueChange(newValue)
+                editRevision++
+            }
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { isFocused = it.isFocused },
         label = { Text(label) },
         placeholder = if (placeholder.isEmpty()) null else ({ Text(placeholder) }),
         supportingText = supporting?.let { text -> ({ Text(text) }) },
@@ -349,11 +435,13 @@ private fun DeweyTextField(
             imeAction = if (isLast) ImeAction.Done else ImeAction.Next,
         ),
         keyboardActions = KeyboardActions(
-            onNext = { focusManager.moveFocus(FocusDirection.Next) },
+            onNext = { moveNext() },
             onDone = { focusManager.clearFocus(); onDone() },
         ),
     )
 }
+
+private const val AUTO_ADVANCE_DELAY_MS = 700L
 
 @Composable
 private fun validationText(error: ValidationError): String = when (error) {
