@@ -47,10 +47,18 @@ android {
     testOptions {
         unitTests.returnDefaultValues = true
     }
+
+    lint {
+        // Lifecycle 2.8.x's detector crashes inside AGP 8.7/K2 before reporting.
+        // The app uses StateFlow rather than MutableLiveData, so this detector
+        // is not applicable; every other Android lint check remains enabled.
+        disable 'NullSafeMutableLiveData'
+    }
 }
 
 dependencies {
-    def composeBom = platform('androidx.compose:compose-bom:2026.06.01')
+    // Keep Compose aligned with AGP 8.7's bundled lint/K2 analysis API.
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
     implementation composeBom
     androidTestImplementation composeBom
 
