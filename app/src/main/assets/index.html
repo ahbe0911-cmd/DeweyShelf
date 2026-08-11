@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#056886">
+<title>چیدمان‌یار دیویی</title>
+<style>
+:root{--teal:#087c9c;--teal-dark:#056886;--teal-soft:#e8f5f8;--gold:#f4a62a;--ink:#16333d;--muted:#667b83;--line:#dbe7eb;--paper:#fff;--bg:#f4f8fa;--danger:#c74848;--ok:#188763;--shadow:0 10px 30px rgba(20,71,88,.10)}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif}body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+button,input,textarea{font:inherit}button{cursor:pointer}.app{max-width:980px;margin:auto}
+.topbar{background:linear-gradient(135deg,var(--teal-dark),var(--teal));color:#fff;padding:20px 18px 24px;position:relative;overflow:hidden}
+.topbar:after{content:"";position:absolute;width:180px;height:180px;border:26px solid rgba(255,255,255,.07);border-radius:50%;left:-80px;top:-92px}
+.brand{display:flex;align-items:center;gap:12px;position:relative;z-index:1}.brand-icon{width:54px;height:54px;border-radius:17px;background:#fff;color:var(--teal);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.brand-icon svg{width:36px;height:36px}.brand h1{font-size:1.3rem;margin:0 0 5px}.brand p{margin:0;color:#d9f4fa;font-size:.82rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px;position:relative;z-index:1}.stat{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:10px;text-align:center}.stat strong{font-size:1.2rem;display:block}.stat span{font-size:.72rem;color:#d9f4fa}
+.tabs{position:sticky;top:0;z-index:20;background:rgba(244,248,250,.95);backdrop-filter:blur(12px);display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}.tab{border:0;background:transparent;color:var(--muted);border-radius:12px;padding:11px 5px;font-size:.82rem}.tab.active{background:var(--teal);color:#fff;box-shadow:0 5px 14px rgba(8,124,156,.23)}
+main{padding:14px}.panel{display:none}.panel.active{display:block}.card{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}.card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.card-title h2,.card-title h3{font-size:1rem;margin:0}.subtitle{color:var(--muted);font-size:.78rem;line-height:1.8;margin:5px 0 0}
+.notice{background:linear-gradient(135deg,#e8f7fa,#fff8e8);border:1px solid #d6eaed;border-radius:18px;padding:15px;margin-bottom:14px}.notice strong{display:block;margin-bottom:6px}.notice p{margin:0;font-size:.8rem;line-height:1.9;color:#526a73}
+.class-banner{display:flex;align-items:center;gap:12px;border-radius:17px;padding:13px;background:var(--teal-soft);border:1px solid #cde7ed;margin-bottom:14px}.class-number{min-width:66px;background:var(--teal);color:#fff;border-radius:13px;text-align:center;padding:10px 6px;font-weight:bold;direction:ltr}.class-info strong{display:block;font-size:.9rem}.class-info span{font-size:.74rem;color:var(--muted)}
+.form-layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:.76rem;color:#445d66;font-weight:bold}.field small{font-size:.67rem;color:#7c9097}.input{width:100%;border:1px solid #ccdce1;border-radius:13px;background:#fbfdfe;color:var(--ink);padding:12px;outline:0;transition:.2s}.input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(8,124,156,.11);background:#fff}.numeric{direction:ltr;text-align:center;font-weight:bold;letter-spacing:.5px}
+.form-actions{display:grid;grid-template-columns:1fr auto;gap:9px;margin-top:14px}.primary{border:0;border-radius:14px;background:linear-gradient(135deg,var(--teal-dark),var(--teal));color:#fff;padding:13px 16px;font-weight:bold;box-shadow:0 7px 18px rgba(8,124,156,.23)}.secondary{border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);padding:12px 15px}.danger{color:var(--danger);border-color:#f0cece}.tiny{padding:7px 9px;border-radius:10px;font-size:.72rem}
+.preview-wrap{position:sticky;top:74px;align-self:start}.preview-label{font-size:.74rem;color:var(--muted);margin:0 0 8px;text-align:center}.book-spine{width:170px;min-height:285px;margin:auto;background:#fefefe;border:1px solid #c8d8dd;border-radius:7px 7px 14px 14px;box-shadow:7px 9px 0 #dbe7eb,0 16px 30px rgba(23,72,88,.15);position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center}.spine-head{width:100%;background:var(--teal);color:#fff;text-align:center;padding:15px 8px;font-size:.8rem;min-height:62px;display:grid;place-items:center}.spine-band{width:100%;height:10px;background:var(--gold)}.call-label{margin:24px 13px 12px;padding:14px 8px;width:calc(100% - 26px);border:2px solid var(--teal);background:#fff;text-align:center;color:#101c20;border-radius:4px;box-shadow:0 4px 9px rgba(0,0,0,.08)}.call-line{min-height:27px;font-size:1.05rem;font-weight:bold;direction:ltr;unicode-bidi:isolate}.call-line.cutter{direction:rtl;display:flex;justify-content:center;gap:1px}.call-meta{font-size:.78rem;min-height:22px}.spine-foot{margin-top:auto;width:100%;padding:10px;color:#fff;background:var(--teal-dark);font-size:.68rem;text-align:center}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}.toolbar .input{flex:1}.empty{text-align:center;color:var(--muted);padding:38px 15px}.empty-icon{font-size:2.4rem;display:block;margin-bottom:10px}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:15px}table{width:100%;border-collapse:collapse;min-width:700px;background:#fff}th,td{padding:11px 9px;border-bottom:1px solid #e7eff1;text-align:right;font-size:.75rem;white-space:nowrap}th{background:#edf6f8;color:#3f5962;font-size:.7rem}tr:last-child td{border-bottom:0}.call-chip{display:inline-flex;direction:ltr;gap:4px;background:#edf6f8;border:1px solid #d4e9ee;border-radius:10px;padding:6px 8px;font-weight:bold}.row-actions{display:flex;gap:5px}
+.order-list{display:grid;gap:10px}.order-card{display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:11px;background:#fff}.rank{width:38px;height:38px;border-radius:12px;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:bold}.order-main strong{display:block;font-size:.86rem;margin-bottom:5px}.order-meta{display:flex;gap:6px;flex-wrap:wrap;font-size:.7rem;color:var(--muted)}.reason{margin-top:6px;font-size:.7rem;color:#42616b}.move{font-size:.68rem;border-radius:10px;padding:7px;text-align:center;min-width:76px}.move.ok{color:var(--ok);background:#e9f7f2}.move.up,.move.down{color:#a06409;background:#fff3dc}.duplicate{border-color:#e7a8a8;background:#fffafa}.duplicate-tag{color:var(--danger);font-weight:bold}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.summary div{border-radius:14px;background:#edf6f8;padding:11px;text-align:center}.summary strong{display:block;font-size:1.05rem;color:var(--teal)}.summary span{font-size:.68rem;color:var(--muted)}
+.pill{border:0;border-radius:999px;background:#eef5f7;color:#49636c;padding:7px 10px;font-size:.7rem}.pill.gold{background:#fff1d5;color:#8b5a03}
+.toast{position:fixed;right:18px;left:18px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:60;background:#16333d;color:#fff;border-radius:14px;padding:12px 16px;text-align:center;font-size:.8rem;transform:translateY(30px);opacity:0;pointer-events:none;transition:.25s}.toast.show{transform:none;opacity:1}
+.modal{position:fixed;inset:0;background:rgba(10,37,46,.48);z-index:70;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-box{background:#fff;border-radius:20px;padding:17px;width:min(560px,100%);max-height:85vh;overflow:auto}.modal-box h3{margin:0 0 8px}.modal-box textarea{min-height:190px;direction:ltr;text-align:left;font-family:monospace;font-size:.7rem}.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+@media(max-width:700px){.form-layout{grid-template-columns:1fr}.preview-wrap{position:static}.form-grid{grid-template-columns:1fr 1fr}.preview-card{order:-1}.book-spine{min-height:245px}.call-label{margin-top:18px}.order-card{grid-template-columns:40px 1fr}.move{grid-column:2;justify-self:start}.topbar{padding-top:18px}}
+@media(max-width:400px){.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.stats{gap:5px}.stat{padding:8px 3px}.tab{font-size:.73rem}.summary{gap:5px}.summary div{padding:8px 3px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64"><path fill="currentColor" d="M8 24 32 8l24 16v4H8v-4Zm4 8h8v18h-8V32Zm16 0h8v18h-8V32Zm16 0h8v18h-8V32ZM6 54h52v6H6v-6Z"/><path fill="#f4a62a" d="M27 37h10v13H27z"/></svg>
+    </div>
+    <div><h1>چیدمان‌یار دیویی</h1><p>ثبت عطف و تعیین ترتیب صحیح قفسه</p></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><strong id="statCount">۰</strong><span>کتاب ثبت‌شده</span></div>
+    <div class="stat"><strong id="statCorrect">۰</strong><span>جایگاه صحیح</span></div>
+    <div class="stat"><strong id="statDuplicate">۰</strong><span>برچسب تکراری</span></div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="add">＋ افزودن</button>
+  <button class="tab" data-tab="records">جدول ثبت‌ها</button>
+  <button class="tab" data-tab="sorted">چیدمان صحیح</button>
+</nav>
+
+<main>
+<section class="panel active" id="panel-add">
+  <div class="notice"><strong>ورود اجزای برچسب عطف</strong><p>شماره رده و اعشار جدا وارد می‌شوند تا ترتیب اعداد در حالت فارسی به‌هم نریزد. برنامه پس از ثبت، همه کتاب‌ها را طبق قواعد دیویی و نشانه مؤلف مقایسه می‌کند.</p></div>
+  <div class="form-layout">
+    <div class="card">
+      <div class="card-title"><div><h2 id="formTitle">افزودن کتاب جدید</h2><p class="subtitle">فیلدهای ستاره‌دار الزامی‌اند.</p></div><button class="pill gold" id="sampleBtn" type="button">نمونه آزمایشی</button></div>
+      <div class="class-banner">
+        <div class="class-number" id="classRange">۰۰۰–۰۹۹</div>
+        <div class="class-info"><strong id="classTitle">کلیات، اطلاعات و علوم رایانه</strong><span id="classHint">رده اصلی از روی شماره تشخیص داده می‌شود.</span></div>
+      </div>
+      <form id="bookForm" autocomplete="off">
+        <div class="form-grid">
+          <div class="field full"><label for="title">عنوان کتاب *</label><input class="input" id="title" maxlength="120" placeholder="مثلاً حقوق اساسی و اداری"></div>
+          <div class="field"><label for="mainClass">شماره اصلی رده *</label><input class="input numeric" id="mainClass" inputmode="numeric" maxlength="3" placeholder="۳۴۲"><small>عددی از ۰۰۰ تا ۹۹۹</small></div>
+          <div class="field"><label for="fraction">اعشار رده</label><input class="input numeric" id="fraction" inputmode="numeric" maxlength="12" placeholder="۵۵"><small>بدون علامت ممیز</small></div>
+          <div class="field"><label for="authorLetter">حرف نشانه مؤلف *</label><input class="input" id="authorLetter" maxlength="2" placeholder="ح"></div>
+          <div class="field"><label for="authorNumber">عدد نشانه مؤلف *</label><input class="input numeric" id="authorNumber" inputmode="numeric" maxlength="8" placeholder="۵۱۲"><small>به صورت اعشاری مقایسه می‌شود</small></div>
+          <div class="field"><label for="workMark">نشانه اثر</label><input class="input" id="workMark" maxlength="3" placeholder="ش"><small>معمولاً حرف اول عنوان</small></div>
+          <div class="field"><label for="volume">شماره جلد یا جزء</label><input class="input numeric" id="volume" inputmode="numeric" maxlength="5" placeholder="۲"></div>
+          <div class="field"><label for="copy">شماره نسخه</label><input class="input numeric" id="copy" inputmode="numeric" maxlength="5" placeholder="۱"></div>
+          <div class="field"><label for="year">سال انتشار</label><input class="input numeric" id="year" inputmode="numeric" maxlength="4" placeholder="۱۴۰۳"></div>
+        </div>
+        <div class="form-actions"><button class="primary" id="submitBtn" type="submit">افزودن به جدول</button><button class="secondary" id="resetBtn" type="button">پاک‌کردن فرم</button></div>
+      </form>
+    </div>
+
+    <div class="card preview-card preview-wrap">
+      <p class="preview-label">پیش‌نمایش برچسب عطف</p>
+      <div class="book-spine">
+        <div class="spine-head" id="previewTitle">عنوان کتاب</div><div class="spine-band"></div>
+        <div class="call-label">
+          <div class="call-line" id="previewDewey">۰۰۰</div>
+          <div class="call-line cutter" id="previewCutter"><span>ح</span><span>۰۰۰</span><span>ا</span></div>
+          <div class="call-meta" id="previewVolume"></div>
+          <div class="call-meta" id="previewYear"></div>
+        </div>
+        <div class="spine-foot" id="previewClass">کلیات، اطلاعات و علوم رایانه</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panel-records">
+  <div class="card">
+    <div class="card-title"><div><h2>جدول ثبت اولیه</h2><p class="subtitle">کتاب‌ها به همان ترتیبی که وارد شده‌اند نمایش داده می‌شوند.</p></div><button class="pill" id="backupBtn" type="button">پشتیبان</button></div>
+    <div class="toolbar"><input class="input" id="searchInput" placeholder="جست‌وجوی عنوان یا شماره..."><button class="secondary tiny danger" id="clearAllBtn" type="button">حذف همه</button></div>
+    <div id="recordsContent"></div>
+  </div>
+</section>
+
+<section class="panel" id="panel-sorted">
+  <div class="card">
+    <div class="card-title"><div><h2>چیدمان صحیح قفسه</h2><p class="subtitle">اول شماره رده، سپس نشانه مؤلف و سایر اجزای عطف مقایسه می‌شوند.</p></div><button class="pill gold" id="copyOrderBtn" type="button">کپی ترتیب</button></div>
+    <div class="summary"><div><strong id="summaryAll">۰</strong><span>کل کتاب‌ها</span></div><div><strong id="summaryRight">۰</strong><span>بدون جابه‌جایی</span></div><div><strong id="summaryMove">۰</strong><span>نیازمند جابه‌جایی</span></div></div>
+    <div id="sortedContent"></div>
+  </div>
+</section>
+</main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="backupModal">
+  <div class="modal-box">
+    <h3>پشتیبان‌گیری و بازیابی</h3>
+    <p class="subtitle">برای پشتیبان‌گیری، متن را کپی و نگهداری کنید. برای بازیابی، متن قبلی را جای‌گذاری کنید.</p>
+    <textarea class="input" id="backupText"></textarea>
+    <div class="modal-actions"><button class="secondary" id="closeModalBtn">بستن</button><button class="secondary" id="copyBackupBtn">کپی پشتیبان</button><button class="primary" id="importBackupBtn">بازیابی اطلاعات</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var STORAGE_KEY="deweyShelf.records.v1";
+var records=[];
+var editingId=null;
+var toastTimer=null;
+var faDigits="۰۱۲۳۴۵۶۷۸۹";
+var arDigits="٠١٢٣٤٥٦٧٨٩";
+var alphabet=["ا","آ","ب","پ","ت","ث","ج","چ","ح","خ","د","ذ","ر","ز","ژ","س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ک","گ","ل","م","ن","و","ه","ی"];
+var classes=[
+ {range:"۰۰۰–۰۹۹",title:"کلیات، اطلاعات و علوم رایانه",color:"#087c9c"},
+ {range:"۱۰۰–۱۹۹",title:"فلسفه و روان‌شناسی",color:"#6750a4"},
+ {range:"۲۰۰–۲۹۹",title:"دین و مذهب",color:"#b06c22"},
+ {range:"۳۰۰–۳۹۹",title:"علوم اجتماعی",color:"#c14d60"},
+ {range:"۴۰۰–۴۹۹",title:"زبان",color:"#2a7a67"},
+ {range:"۵۰۰–۵۹۹",title:"علوم طبیعی و ریاضیات",color:"#3974a7"},
+ {range:"۶۰۰–۶۹۹",title:"فناوری و علوم کاربردی",color:"#b36b00"},
+ {range:"۷۰۰–۷۹۹",title:"هنر و سرگرمی",color:"#a14887"},
+ {range:"۸۰۰–۸۹۹",title:"ادبیات",color:"#4e6d2d"},
+ {range:"۹۰۰–۹۹۹",title:"تاریخ و جغرافیا",color:"#805548"}
+];
+var collator=(window.Intl&&Intl.Collator)?new Intl.Collator("fa",{sensitivity:"base"}):null;
+
+function byId(id){return document.getElementById(id)}
+function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function latinDigits(value){
+ return String(value==null?"":value).replace(/[۰-۹]/g,function(d){return faDigits.indexOf(d)}).replace(/[٠-٩]/g,function(d){return arDigits.indexOf(d)})
+}
+function digitsOnly(value){return latinDigits(value).replace(/[^0-9]/g,"")}
+function toFa(value){return String(value==null?"":value).replace(/[0-9]/g,function(d){return faDigits.charAt(Number(d))})}
+function normalizeText(value){
+ return String(value==null?"":value).replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[ةۀ]/g,"ه").replace(/ـ/g,"").replace(/s+/g," ").trim()
+}
+function firstLetter(value){return normalizeText(value).replace(/s/g,"").charAt(0)}
+function padMain(value){var n=digitsOnly(value);while(n.length<3)n="0"+n;return n.slice(-3)}
+function classInfo(main){var n=parseInt(digitsOnly(main)||"0",10);return classes[Math.max(0,Math.min(9,Math.floor(n/100)))]}
+function formatDewey(r){var base=padMain(r.main);return toFa(base+(r.fraction?"/"+r.fraction:""))}
+function cutterPlain(r){return (r.authorLetter||"")+toFa(r.authorNumber||"")+(r.workMark||"")}
+function callPlain(r){
+ var lines=[formatDewey(r),cutterPlain(r)];
+ if(r.volume)lines.push("ج "+toFa(r.volume));
+ if(r.copy)lines.push("ن "+toFa(r.copy));
+ if(r.year)lines.push(toFa(r.year));
+ return lines.join("
+")
+}
+function callOneLine(r){return formatDewey(r)+" | "+cutterPlain(r)+(r.volume?" | ج "+toFa(r.volume):"")+(r.year?" | "+toFa(r.year):"")}
+function decimalDigitsCompare(a,b){
+ a=digitsOnly(a);b=digitsOnly(b);var len=Math.max(a.length,b.length);while(a.length<len)a+="0";while(b.length<len)b+="0";
+ if(a<b)return -1;if(a>b)return 1;return 0
+}
+function textCompare(a,b){
+ a=normalizeText(a);b=normalizeText(b);
+ if(collator)return collator.compare(a,b);
+ return a<b?-1:a>b?1:0
+}
+function letterCompare(a,b){
+ a=firstLetter(a);b=firstLetter(b);var ai=alphabet.indexOf(a),bi=alphabet.indexOf(b);
+ if(ai<0)ai=1000+(a.charCodeAt(0)||0);if(bi<0)bi=1000+(b.charCodeAt(0)||0);
+ return ai-bi
+}
+function numberCompare(a,b){var an=parseInt(digitsOnly(a)||"0",10),bn=parseInt(digitsOnly(b)||"0",10);return an-bn}
+function compareCore(a,b){
+ var n=numberCompare(a.main,b.main);if(n)return n;
+ n=decimalDigitsCompare(a.fraction,b.fraction);if(n)return n;
+ n=letterCompare(a.authorLetter,b.authorLetter);if(n)return n;
+ n=decimalDigitsCompare(a.authorNumber,b.authorNumber);if(n)return n;
+ n=textCompare(a.workMark,b.workMark);if(n)return n;
+ n=numberCompare(a.volume,b.volume);if(n)return n;
+ n=numberCompare(a.copy,b.copy);if(n)return n;
+ n=numberCompare(a.year,b.year);if(n)return n;
+ n=textCompare(a.title,b.title);if(n)return n;
+ return Number(a.createdAt||0)-Number(b.createdAt||0)
+}
+function labelKey(r){return [padMain(r.main),digitsOnly(r.fraction),firstLetter(r.authorLetter),digitsOnly(r.authorNumber),normalizeText(r.workMark),digitsOnly(r.volume),digitsOnly(r.copy),digitsOnly(r.year)].join("|")}
+function duplicateCount(){var seen={},count=0;records.forEach(function(r){var k=labelKey(r);if(seen[k])count++;seen[k]=true});return count}
+function load(){
+ try{var parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]");records=Array.isArray(parsed)?parsed:[]}catch(e){records=[]}
+}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(records))}
+function showToast(message){var el=byId("toast");el.textContent=message;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.remove("show")},2200)}
+function copyText(text){
+ var area=document.createElement("textarea");area.value=text;area.style.position="fixed";area.style.opacity="0";document.body.appendChild(area);area.focus();area.select();
+ var ok=false;try{ok=document.execCommand("copy")}catch(e){}document.body.removeChild(area);showToast(ok?"کپی شد":"متن را به‌صورت دستی کپی کنید")
+}
+function sortedRecords(){return records.slice().sort(compareCore)}
+function reasonBetween(prev,cur){
+ if(!prev)return "شروع چیدمان";
+ if(numberCompare(prev.main,cur.main)!==0)return "ادامه بر اساس شماره اصلی رده";
+ if(decimalDigitsCompare(prev.fraction,cur.fraction)!==0)return "ادامه بر اساس اعشار رده";
+ if(letterCompare(prev.authorLetter,cur.authorLetter)!==0)return "ادامه بر اساس حرف نشانه مؤلف";
+ if(decimalDigitsCompare(prev.authorNumber,cur.authorNumber)!==0)return "عدد نشانه مؤلف به صورت اعشاری";
+ if(textCompare(prev.workMark,cur.workMark)!==0)return "ادامه بر اساس نشانه اثر";
+ if(numberCompare(prev.volume,cur.volume)!==0)return "ادامه بر اساس شماره جلد";
+ if(numberCompare(prev.copy,cur.copy)!==0)return "ادامه بر اساس شماره نسخه";
+ if(numberCompare(prev.year,cur.year)!==0)return "ادامه بر اساس سال انتشار";
+ return "برچسب یکسان؛ عنوان برای تفکیک استفاده شد"
+}
+function updateStats(){
+ var sorted=sortedRecords(),correct=0;
+ sorted.forEach(function(r,i){if(records.indexOf(r)===i)correct++});
+ byId("statCount").textContent=toFa(records.length);byId("statCorrect").textContent=toFa(correct);byId("statDuplicate").textContent=toFa(duplicateCount())
+}
+function updatePreview(){
+ var temp={
+  title:normalizeText(byId("title").value)||"عنوان کتاب",
+  main:digitsOnly(byId("mainClass").value)||"0",
+  fraction:digitsOnly(byId("fraction").value),
+  authorLetter:firstLetter(byId("authorLetter").value)||"ح",
+  authorNumber:digitsOnly(byId("authorNumber").value)||"000",
+  workMark:firstLetter(byId("workMark").value)||"ا",
+  volume:digitsOnly(byId("volume").value),
+  copy:digitsOnly(byId("copy").value),
+  year:digitsOnly(byId("year").value)
+ };
+ var info=classInfo(temp.main);
+ byId("classRange").textContent=info.range;byId("classTitle").textContent=info.title;byId("classNumber");
+ byId("classRange").style.background=info.color;
+ byId("previewTitle").textContent=temp.title;byId("previewTitle").style.background=info.color;
+ byId("previewDewey").textContent=formatDewey(temp);
+ byId("previewCutter").innerHTML="<span>"+escapeHtml(temp.authorLetter)+"</span><span>"+toFa(temp.authorNumber)+"</span><span>"+escapeHtml(temp.workMark)+"</span>";
+ var meta=[];if(temp.volume)meta.push("جلد "+toFa(temp.volume));if(temp.copy)meta.push("نسخه "+toFa(temp.copy));
+ byId("previewVolume").textContent=meta.join(" • ");byId("previewYear").textContent=temp.year?"سال "+toFa(temp.year):"";
+ byId("previewClass").textContent=info.title;byId("previewClass").style.background=info.color
+}
+function recordFromForm(){
+ return {
+  id:editingId||("b"+Date.now()+Math.random().toString(16).slice(2)),
+  title:normalizeText(byId("title").value),
+  main:String(parseInt(digitsOnly(byId("mainClass").value)||"0",10)),
+  fraction:digitsOnly(byId("fraction").value),
+  authorLetter:firstLetter(byId("authorLetter").value),
+  authorNumber:digitsOnly(byId("authorNumber").value),
+  workMark:firstLetter(byId("workMark").value),
+  volume:digitsOnly(byId("volume").value),
+  copy:digitsOnly(byId("copy").value),
+  year:digitsOnly(byId("year").value),
+  createdAt:Date.now()
+ }
+}
+function resetForm(){
+ editingId=null;byId("bookForm").reset();byId("formTitle").textContent="افزودن کتاب جدید";byId("submitBtn").textContent="افزودن به جدول";updatePreview()
+}
+function submitForm(event){
+ event.preventDefault();var r=recordFromForm(),main=parseInt(r.main,10);
+ if(!r.title){showToast("عنوان کتاب را وارد کنید");byId("title").focus();return}
+ if(!digitsOnly(byId("mainClass").value)||main<0||main>999){showToast("شماره اصلی باید بین ۰۰۰ تا ۹۹۹ باشد");byId("mainClass").focus();return}
+ if(!r.authorLetter){showToast("حرف نشانه مؤلف را وارد کنید");byId("authorLetter").focus();return}
+ if(!r.authorNumber){showToast("عدد نشانه مؤلف را وارد کنید");byId("authorNumber").focus();return}
+ var duplicate=records.some(function(x){return x.id!==r.id&&labelKey(x)===labelKey(r)});
+ if(duplicate&&!confirm("برچسبی با همین اجزا قبلاً ثبت شده است. با این حال ذخیره شود؟"))return;
+ if(editingId){
+  var idx=records.findIndex(function(x){return x.id===editingId});if(idx>=0){r.createdAt=records[idx].createdAt;records[idx]=r}
+  showToast("اطلاعات کتاب ویرایش شد")
+ }else{records.push(r);showToast("کتاب به جدول افزوده شد")}
+ save();resetForm();renderAll();switchTab("records")
+}
+function editRecord(id){
+ var r=records.find(function(x){return x.id===id});if(!r)return;editingId=id;
+ byId("title").value=r.title;byId("mainClass").value=toFa(padMain(r.main));byId("fraction").value=toFa(r.fraction);byId("authorLetter").value=r.authorLetter;byId("authorNumber").value=toFa(r.authorNumber);byId("workMark").value=r.workMark;byId("volume").value=toFa(r.volume);byId("copy").value=toFa(r.copy);byId("year").value=toFa(r.year);
+ byId("formTitle").textContent="ویرایش کتاب";byId("submitBtn").textContent="ذخیره تغییرات";updatePreview();switchTab("add");window.scrollTo(0,0)
+}
+function deleteRecord(id){
+ var r=records.find(function(x){return x.id===id});if(!r||!confirm("کتاب «"+r.title+"» حذف شود؟"))return;
+ records=records.filter(function(x){return x.id!==id});save();renderAll();showToast("کتاب حذف شد")
+}
+function renderRecords(){
+ var q=normalizeText(byId("searchInput").value).toLowerCase();
+ var filtered=records.filter(function(r){return !q||(normalizeText(r.title)+" "+callOneLine(r)).toLowerCase().indexOf(q)>=0});
+ var box=byId("recordsContent");
+ if(!filtered.length){box.innerHTML='<div class="empty"><span class="empty-icon">📚</span>'+(records.length?"نتیجه‌ای پیدا نشد.":"هنوز کتابی ثبت نشده است.")+"</div>";return}
+ var html='<div class="table-wrap"><table><thead><tr><th>ردیف</th><th>عنوان</th><th>برچسب عطف</th><th>رده اصلی</th><th>عملیات</th></tr></thead><tbody>';
+ filtered.forEach(function(r){var original=records.indexOf(r)+1,info=classInfo(r.main);
+  html+="<tr><td>"+toFa(original)+"</td><td><strong>"+escapeHtml(r.title)+"</strong></td><td><span class='call-chip'>"+escapeHtml(callOneLine(r))+"</span></td><td>"+escapeHtml(info.title)+"</td><td><div class='row-actions'><button class='secondary tiny edit-btn' data-id='"+r.id+"'>ویرایش</button><button class='secondary tiny copy-btn' data-id='"+r.id+"'>کپی</button><button class='secondary tiny danger delete-btn' data-id='"+r.id+"'>حذف</button></div></td></tr>"
+ });
+ html+="</tbody></table></div>";box.innerHTML=html
+}
+function renderSorted(){
+ var sorted=sortedRecords(),box=byId("sortedContent"),correct=0;
+ sorted.forEach(function(r,i){if(records.indexOf(r)===i)correct++});
+ byId("summaryAll").textContent=toFa(sorted.length);byId("summaryRight").textContent=toFa(correct);byId("summaryMove").textContent=toFa(sorted.length-correct);
+ if(!sorted.length){box.innerHTML='<div class="empty"><span class="empty-icon">↕️</span>برای مشاهده چیدمان، ابتدا چند کتاب ثبت کنید.</div>';return}
+ var counts={};sorted.forEach(function(r){var k=labelKey(r);counts[k]=(counts[k]||0)+1});
+ var html='<div class="order-list">';
+ sorted.forEach(function(r,i){
+  var original=records.indexOf(r),delta=original-i,moveClass="ok",moveText="جایگاه درست";
+  if(delta>0){moveClass="up";moveText="↑ "+toFa(delta)+" ردیف"}else if(delta<0){moveClass="down";moveText="↓ "+toFa(Math.abs(delta))+" ردیف"}
+  var dup=counts[labelKey(r)]>1;
+  html+="<div class='order-card"+(dup?" duplicate":"")+"'><div class='rank'>"+toFa(i+1)+"</div><div class='order-main'><strong>"+escapeHtml(r.title)+(dup?" <span class='duplicate-tag'>• تکراری</span>":"")+"</strong><div class='order-meta'><span class='call-chip'>"+escapeHtml(callOneLine(r))+"</span><span>ثبت اولیه: "+toFa(original+1)+"</span><span>جایگاه صحیح: "+toFa(i+1)+"</span></div><div class='reason'>"+escapeHtml(reasonBetween(sorted[i-1],r))+"</div></div><div class='move "+moveClass+"'>"+moveText+"</div></div>"
+ });
+ html+="</div>";box.innerHTML=html
+}
+function renderAll(){renderRecords();renderSorted();updateStats()}
+function switchTab(name){
+ document.querySelectorAll(".tab").forEach(function(x){x.classList.toggle("active",x.getAttribute("data-tab")===name)});
+ document.querySelectorAll(".panel").forEach(function(x){x.classList.toggle("active",x.id==="panel-"+name)});
+ if(name==="records")renderRecords();if(name==="sorted")renderSorted()
+}
+function addSamples(){
+ if(records.length&&!confirm("نمونه‌ها به اطلاعات فعلی افزوده شوند؟"))return;
+ var now=Date.now(),samples=[
+  {title:"جغرافیای ایران",main:"915",fraction:"694",authorLetter:"ب",authorNumber:"52",workMark:"ج",volume:"",copy:"",year:"1400"},
+  {title:"سفر در ایران",main:"915",fraction:"5",authorLetter:"ب",authorNumber:"51",workMark:"س",volume:"",copy:"",year:"1398"},
+  {title:"تاریخ شهرهای ایران",main:"955",fraction:"",authorLetter:"ا",authorNumber:"42",workMark:"ت",volume:"2",copy:"",year:"1401"},
+  {title:"راهنمای ایران‌شناسی",main:"915",fraction:"694",authorLetter:"ب",authorNumber:"516",workMark:"ر",volume:"",copy:"",year:"1402"}
+ ];
+ samples.forEach(function(r,i){r.id="sample"+now+i;r.createdAt=now+i;records.push(r)});save();renderAll();showToast("چهار کتاب نمونه افزوده شد");switchTab("records")
+}
+function openBackup(){byId("backupText").value=JSON.stringify(records,null,2);byId("backupModal").classList.add("show")}
+function closeBackup(){byId("backupModal").classList.remove("show")}
+function importBackup(){
+ try{
+  var data=JSON.parse(byId("backupText").value);if(!Array.isArray(data))throw new Error();
+  if(!confirm("اطلاعات فعلی با این پشتیبان جایگزین شود؟"))return;
+  records=data;save();renderAll();closeBackup();showToast("اطلاعات بازیابی شد")
+ }catch(e){showToast("متن پشتیبان معتبر نیست")}
+}
+function bind(){
+ document.querySelectorAll(".tab").forEach(function(x){x.addEventListener("click",function(){switchTab(x.getAttribute("data-tab"))})});
+ byId("bookForm").addEventListener("submit",submitForm);byId("resetBtn").addEventListener("click",resetForm);byId("sampleBtn").addEventListener("click",addSamples);
+ document.querySelectorAll("#bookForm input").forEach(function(x){x.addEventListener("input",updatePreview)});
+ byId("searchInput").addEventListener("input",renderRecords);
+ byId("recordsContent").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;var id=b.getAttribute("data-id");
+  if(b.classList.contains("edit-btn"))editRecord(id);if(b.classList.contains("delete-btn"))deleteRecord(id);if(b.classList.contains("copy-btn")){var r=records.find(function(x){return x.id===id});if(r)copyText(r.title+"
+"+callPlain(r))}
+ });
+ byId("clearAllBtn").addEventListener("click",function(){if(records.length&&confirm("همه کتاب‌های ثبت‌شده حذف شوند؟")){records=[];save();renderAll();showToast("همه اطلاعات حذف شد")}});
+ byId("copyOrderBtn").addEventListener("click",function(){var text=sortedRecords().map(function(r,i){return toFa(i+1)+". "+r.title+"
+"+callPlain(r)}).join("
+
+");if(text)copyText(text);else showToast("کتابی برای کپی وجود ندارد")});
+ byId("backupBtn").addEventListener("click",openBackup);byId("closeModalBtn").addEventListener("click",closeBackup);byId("copyBackupBtn").addEventListener("click",function(){copyText(byId("backupText").value)});byId("importBackupBtn").addEventListener("click",importBackup);
+ byId("backupModal").addEventListener("click",function(e){if(e.target===byId("backupModal"))closeBackup()})
+}
+load();bind();updatePreview();renderAll();
+})();
+</script>
+</body>
+</html>
