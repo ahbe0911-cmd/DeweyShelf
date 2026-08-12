@@ -42,6 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source/khabar_cafe/docs"
           python3 ci/khabar-public/patch_public_mode.py \
             "$RUNNER_TEMP/source/khabar_cafe" \
             "$GITHUB_WORKSPACE/ci/khabar-public"
