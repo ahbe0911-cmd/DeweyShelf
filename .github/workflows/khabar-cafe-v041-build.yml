@@ -81,6 +81,27 @@ jobs:
           tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
           test -f kc/khabar_cafe/pubspec.yaml
 
+      - name: Apply v0.4.1 analyzer fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('kc/khabar_cafe/lib/features/feed/presentation/feed_page.dart')
+          s = p.read_text()
+          old = """final class _PostTextParts {\n  const _PostTextParts({required this.title, required this.body});\n\n  final String title;\n  final String body;\n\n  factory _PostTextParts.from(TelegramPost post) {\n"""
+          new = """final class _PostTextParts {\n  const _PostTextParts({required this.title, required this.body});\n\n  factory _PostTextParts.from(TelegramPost post) {\n"""
+          if old not in s:
+              raise SystemExit('PostTextParts constructor anchor not found')
+          s = s.replace(old, new, 1)
+          end = """    return _PostTextParts(title: '', body: combined);\n  }\n}\n\nfinal class _MediaPreview"""
+          replacement = """    return _PostTextParts(title: '', body: combined);\n  }\n\n  final String title;\n  final String body;\n}\n\nfinal class _MediaPreview"""
+          if end not in s:
+              raise SystemExit('PostTextParts factory end anchor not found')
+          s = s.replace(end, replacement, 1)
+          s = s.replace('} on Object catch (error) {', '} on Object catch (_) {', 1)
+          p.write_text(s)
+          PY
+
       - name: Restore Vazirmatn font assets
         shell: bash
         run: |
@@ -143,7 +164,6 @@ jobs:
           mkdir -p kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a
           unzip -p "$OLD_APK" lib/arm64-v8a/libtdjson.so > kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
           echo 'f4ab4e72f681a94cfcc580aa07b9dcb5b51bc91cbfee6630cde0f601f1f6144f  kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so' | sha256sum --check
-          test -s kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
 
       - name: Flutter pub get
         working-directory: kc/khabar_cafe
