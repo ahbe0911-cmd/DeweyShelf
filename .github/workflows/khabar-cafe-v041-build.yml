@@ -27,13 +27,19 @@ jobs:
           434e973a327010a63e1ceada12af18594d7051990c45f4dc3438672a4175b7ea  khabar-cafe-v041-repair/p01-0.b64
           c46ef6cdb9d5187eaf8a576e1815db948261444ff8aeac99c41ca396e04a5165  khabar-cafe-v041-repair/p01-1.b64
           cdedda0858397235dce6f3e4e7e9a4e68a7d808258f5a9183ff28e0a09ee3bbb  khabar-cafe-v041-repair/p01-2.b64
-          b8a77e5a07908e32ccc2df8497f4dd5b59725dc2bbd1878337a4fa2385cca894  khabar-cafe-v041-repair/p01-3.b64
+          8aa57023b4ec0fbb7712ae813c21520a7f37c4b30546f9b09ed57e2e007ee4e5  khabar-cafe-v041-repair2/p01-3-0.b64
+          7cd5596dad1241dd28e3ed3a38d47087cd093441b404122d16f5fde87ef6b4b0  khabar-cafe-v041-repair2/p01-3-1.b64
+          deb2bfaaaa5815ec2968892e2cf25c7cc0e489afba2e8bbb124a9364b967cb63  khabar-cafe-v041-repair2/p01-3-2.b64
+          6cf66ae0a23971a37fbc1cf42eeeb856ed506cd39d1f29c69385ebd31ec492bc  khabar-cafe-v041-repair2/p01-3-3.b64
           14cfb1696b5731269ef8916920ca3fbf20eaaad2481805a14f2f5edc7996042a  khabar-cafe-v041/p02.b64
           b461529ad303a67d83f446d891d3d8e3fdc497bf8bd5e604176d5d6ca6227e82  khabar-cafe-v041/p03.b64
           7bc5f941f9a3be46a888e229fd136e7fc035006f2b26ce7e555f4d4766ec3e17  khabar-cafe-v041-repair/p04-0.b64
           904cc992dc88faa7dba195ec8f3f363cf54394af14d01c1a897bc054c658160a  khabar-cafe-v041-repair/p04-1.b64
           5096e4478c9cd3af7721c155de01fe29d9479f0cd9815b2dc1a362b090d68acd  khabar-cafe-v041-repair/p04-2.b64
-          307bb39834f8771ea10f6f112a8d75300809949f35116c5f08a94beaacbee0d7  khabar-cafe-v041-repair/p04-3.b64
+          145916dccd4175c018b89cb9cb7b270f28e9c0ab2679e4b0588b8b942c1171be  khabar-cafe-v041-repair2/p04-3-0.b64
+          1a1781a982af71842a0c2d85319720e023e82305532820ec89bad15e2b4893c3  khabar-cafe-v041-repair2/p04-3-1.b64
+          37418e91e7527edd8593d06985ec543038a10f496431c5cd0fd94f027f6e6766  khabar-cafe-v041-repair2/p04-3-2.b64
+          950e344a906c1542263aefd7f749d8e8d41122aef34b76fd2893f901f16dff98  khabar-cafe-v041-repair2/p04-3-3.b64
           adbd8bbd5c0baca358c405d1d50a95c958bb3e5090f86941ca114048ee4edeca  khabar-cafe-v041/p05.b64
           1fb4a9ddc430dafb71a922fb68caeda47f125de19409f74cd66f84933095709d  khabar-cafe-v041/p06.b64
           91944112d4177f64db65e3a0951bcd0c6e20ca8fe151659c70550b097c7f361a  khabar-cafe-v041/p07.b64
@@ -43,10 +49,16 @@ jobs:
           : > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
           decode() { base64 -d "$1" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"; }
           decode khabar-cafe-v041/p00.b64
-          for part in khabar-cafe-v041-repair/p01-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041-repair/p01-0.b64
+          decode khabar-cafe-v041-repair/p01-1.b64
+          decode khabar-cafe-v041-repair/p01-2.b64
+          for part in khabar-cafe-v041-repair2/p01-3-*.b64; do decode "$part"; done
           decode khabar-cafe-v041/p02.b64
           decode khabar-cafe-v041/p03.b64
-          for part in khabar-cafe-v041-repair/p04-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041-repair/p04-0.b64
+          decode khabar-cafe-v041-repair/p04-1.b64
+          decode khabar-cafe-v041-repair/p04-2.b64
+          for part in khabar-cafe-v041-repair2/p04-3-*.b64; do decode "$part"; done
           decode khabar-cafe-v041/p05.b64
           decode khabar-cafe-v041/p06.b64
           decode khabar-cafe-v041/p07.b64
