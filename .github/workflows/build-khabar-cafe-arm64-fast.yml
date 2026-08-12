@@ -1,0 +1,102 @@
+name: Build Khabar Cafe ARM64 Fast
+on:
+  push:
+    branches: [khabar-cafe-build]
+    paths: [.github/workflows/build-khabar-cafe-arm64-fast.yml]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat khabar-cafe-min2/part-00a khabar-cafe-min2/part-00c khabar-cafe-min2/part-01 khabar-cafe-min2/part-02 khabar-cafe-min2/part-02-tail khabar-cafe-min2/part-03 khabar-cafe-min2/part-04 | tr -d '[:space:]' > /tmp/app.b64
+          test "$(wc -c < /tmp/app.b64)" -eq 82492
+          base64 -d /tmp/app.b64 > /tmp/app.zip
+          echo 'c4b9c6245affa909ea1acb06c5566194df7453143e41059da4696dd536136867  /tmp/app.zip' | sha256sum -c -
+          unzip -q /tmp/app.zip
+      - name: Prepare app
+        working-directory: khabar_cafe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('pubspec.yaml'); s=p.read_text()
+          if '\n  assets:' in s: s=s.split('\n  assets:',1)[0].rstrip()+'\n'
+          p.write_text(s)
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+      - name: Restore Gradle wrapper
+        shell: bash
+        run: |
+          mkdir -p /tmp/wrapper-project && cd /tmp/wrapper-project
+          printf '' > build.gradle
+          gradle wrapper --gradle-version 9.1.0
+          cp gradlew gradlew.bat "$GITHUB_WORKSPACE/khabar_cafe/android/"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/khabar_cafe/android/gradle/wrapper/"
+          chmod +x "$GITHUB_WORKSPACE/khabar_cafe/android/gradlew"
+      - name: Checkout official TDLib
+        uses: actions/checkout@v4
+        with:
+          repository: tdlib/td
+          path: .tdlib-src
+          fetch-depth: 1
+      - name: Patch official Android build to ARM64 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .tdlib-src/example/android
+          sed -i 's/for ABI in arm64-v8a armeabi-v7a x86_64 x86 ; do/for ABI in arm64-v8a ; do/' build-openssl.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('Dockerfile')
+          s=p.read_text()
+          needle='RUN cd td && git merge-base --is-ancestor 872d8ebd3ba9d922169839e6a24cee08b02b328a "$COMMIT_HASH"\n'
+          insert=needle+'RUN sed -i \'s/for ABI in arm64-v8a armeabi-v7a x86_64 x86 ; do/for ABI in arm64-v8a ; do/\' td/example/android/build-tdlib.sh\n'
+          if needle not in s: raise SystemExit('Dockerfile anchor not found')
+          p.write_text(s.replace(needle,insert))
+          PY
+          grep -n 'for ABI' build-openssl.sh
+          grep -n 'sed -i.*for ABI' Dockerfile
+      - name: Build official TDLib JSON ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .tdlib-src/example/android
+          docker build --build-arg TDLIB_INTERFACE=JSON --output "$RUNNER_TEMP/tdlib-output" .
+      - name: Install TDLib
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tdlib-expanded"
+          while IFS= read -r -d '' a; do unzip -o "$a" -d "$RUNNER_TEMP/tdlib-expanded"; done < <(find "$RUNNER_TEMP/tdlib-output" -type f -name '*.zip' -print0)
+          cp -a "$RUNNER_TEMP/tdlib-output/." "$RUNNER_TEMP/tdlib-expanded/"
+          cd khabar_cafe
+          bash scripts/install_tdlib_json.sh "$RUNNER_TEMP/tdlib-expanded"
+          test -f android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
+      - name: Build ARM64 connected APK
+        working-directory: khabar_cafe
+        run: |
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64 --dart-define=TDLIB_ENABLED=true
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/KhabarCafe-v0.3.1-TDLib-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KhabarCafe-v0.3.1-TDLib-arm64
+          path: khabar_cafe/build/app/outputs/flutter-apk/KhabarCafe-v0.3.1-TDLib-arm64.apk
+          if-no-files-found: error
+          retention-days: 14
