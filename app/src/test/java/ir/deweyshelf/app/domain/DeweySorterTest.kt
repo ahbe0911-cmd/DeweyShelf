@@ -52,6 +52,18 @@ class DeweySorterTest {
         assertEquals(1, DeweySorter.duplicateCount(books))
     }
 
+    @Test
+    fun `analysis preserves original indexes for an unsorted catalog`() {
+        val books = (1L..250L).map { id ->
+            book(id = id, mainClass = (1_000L - id).toInt().coerceAtMost(999), title = "کتاب $id")
+        }
+
+        val result = DeweySorter.analyze(books)
+
+        assertEquals(249, result.first().originalIndex)
+        assertEquals(0, result.last().originalIndex)
+    }
+
     private fun book(
         id: Long,
         mainClass: Int = 915,
@@ -69,4 +81,3 @@ class DeweySorterTest {
         createdAt = id,
     )
 }
-

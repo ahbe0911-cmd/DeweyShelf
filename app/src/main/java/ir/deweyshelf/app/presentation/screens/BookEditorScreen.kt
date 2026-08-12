@@ -1,5 +1,11 @@
 package ir.deweyshelf.app.presentation.screens
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,12 +24,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,6 +55,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -54,10 +68,13 @@ import ir.deweyshelf.app.domain.BookDraft
 import ir.deweyshelf.app.domain.DeweyBook
 import ir.deweyshelf.app.domain.FormField
 import ir.deweyshelf.app.domain.ValidationError
+import ir.deweyshelf.app.domain.VoiceInputNormalizer
 import ir.deweyshelf.app.presentation.SaveResult
 import ir.deweyshelf.app.presentation.components.SectionHeader
 import ir.deweyshelf.app.presentation.components.SpinePreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 private val BookDraftSaver = listSaver<BookDraft, String>(
     save = {
@@ -104,6 +121,8 @@ fun BookEditorScreen(
     var errors by remember { mutableStateOf<Map<FormField, ValidationError>>(emptyMap()) }
     var showDuplicateDialog by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     fun submit(allowDuplicate: Boolean = false) {
         if (isSaving) return
@@ -122,6 +141,7 @@ fun BookEditorScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Surface(
                 tonalElevation = 2.dp,
@@ -170,6 +190,9 @@ fun BookEditorScreen(
                     },
                     onDone = { submit() },
                     isNewBook = existing == null,
+                    onVoiceMessage = { message ->
+                        scope.launch { snackbarHostState.showSnackbar(message) }
+                    },
                     modifier = childModifier,
                 )
             }
@@ -214,8 +237,13 @@ private fun FormContent(
     onChange: (FormField, String) -> Unit,
     onDone: () -> Unit,
     isNewBook: Boolean,
+    onVoiceMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val voiceNotAvailable = stringResource(R.string.voice_not_available)
+    val voiceNoResult = stringResource(R.string.voice_no_result)
     val titleFocus = remember { FocusRequester() }
     val mainClassFocus = remember { FocusRequester() }
     val decimalFocus = remember { FocusRequester() }
@@ -225,6 +253,58 @@ private fun FormContent(
     val volumeFocus = remember { FocusRequester() }
     val copyFocus = remember { FocusRequester() }
     val yearFocus = remember { FocusRequester() }
+    var pendingVoiceField by remember { mutableStateOf<FormField?>(null) }
+
+    fun focusAfter(field: FormField) {
+        when (field) {
+            FormField.Title -> mainClassFocus.requestFocus()
+            FormField.MainClass -> decimalFocus.requestFocus()
+            FormField.DecimalPart -> authorLetterFocus.requestFocus()
+            FormField.AuthorLetter -> authorNumberFocus.requestFocus()
+            FormField.AuthorNumber -> workMarkFocus.requestFocus()
+            FormField.WorkMark -> volumeFocus.requestFocus()
+            FormField.Volume -> copyFocus.requestFocus()
+            FormField.CopyNumber -> yearFocus.requestFocus()
+            FormField.PublicationYear -> focusManager.clearFocus()
+        }
+    }
+
+    val voiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val field = pendingVoiceField
+        pendingVoiceField = null
+        if (result.resultCode == Activity.RESULT_OK && field != null) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            val normalized = VoiceInputNormalizer.forField(field, spokenText)
+            if (normalized.isBlank()) {
+                onVoiceMessage(voiceNoResult)
+            } else {
+                onChange(field, normalized)
+                focusAfter(field)
+            }
+        }
+    }
+
+    fun startVoiceInput(field: FormField, label: String) {
+        pendingVoiceField = field
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale("fa", "IR").toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.voice_prompt, label))
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try {
+            voiceLauncher.launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            pendingVoiceField = null
+            onVoiceMessage(voiceNotAvailable)
+        }
+    }
 
     LaunchedEffect(isNewBook) {
         if (isNewBook) {
@@ -244,6 +324,9 @@ private fun FormContent(
                 error = errors[FormField.Title],
                 focusRequester = titleFocus,
                 nextFocusRequester = mainClassFocus,
+                onVoiceClick = {
+                    startVoiceInput(FormField.Title, context.getString(R.string.book_title_label))
+                },
             )
         }
 
@@ -261,6 +344,9 @@ private fun FormContent(
                     nextFocusRequester = decimalFocus,
                     autoAdvanceLength = 3,
                     autoAdvanceAfterPause = true,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.MainClass, context.getString(R.string.main_class_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -274,6 +360,9 @@ private fun FormContent(
                     focusRequester = decimalFocus,
                     nextFocusRequester = authorLetterFocus,
                     autoAdvanceAfterPause = true,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.DecimalPart, context.getString(R.string.decimal_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -287,6 +376,9 @@ private fun FormContent(
                     focusRequester = authorLetterFocus,
                     nextFocusRequester = authorNumberFocus,
                     autoAdvanceLength = 1,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.AuthorLetter, context.getString(R.string.author_letter_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -300,6 +392,9 @@ private fun FormContent(
                     focusRequester = authorNumberFocus,
                     nextFocusRequester = workMarkFocus,
                     autoAdvanceAfterPause = true,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.AuthorNumber, context.getString(R.string.author_number_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -312,6 +407,9 @@ private fun FormContent(
                 focusRequester = workMarkFocus,
                 nextFocusRequester = volumeFocus,
                 autoAdvanceLength = 1,
+                onVoiceClick = {
+                    startVoiceInput(FormField.WorkMark, context.getString(R.string.work_mark_label))
+                },
             )
         }
 
@@ -326,6 +424,9 @@ private fun FormContent(
                     focusRequester = volumeFocus,
                     nextFocusRequester = copyFocus,
                     autoAdvanceAfterPause = true,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.Volume, context.getString(R.string.volume_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
                 DeweyTextField(
@@ -337,6 +438,9 @@ private fun FormContent(
                     focusRequester = copyFocus,
                     nextFocusRequester = yearFocus,
                     autoAdvanceAfterPause = true,
+                    onVoiceClick = {
+                        startVoiceInput(FormField.CopyNumber, context.getString(R.string.copy_label))
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -347,6 +451,9 @@ private fun FormContent(
                 keyboardType = KeyboardType.Number,
                 error = errors[FormField.PublicationYear],
                 focusRequester = yearFocus,
+                onVoiceClick = {
+                    startVoiceInput(FormField.PublicationYear, context.getString(R.string.year_label))
+                },
                 isLast = true,
                 onDone = onDone,
             )
@@ -389,6 +496,7 @@ private fun DeweyTextField(
     nextFocusRequester: FocusRequester? = null,
     autoAdvanceLength: Int? = null,
     autoAdvanceAfterPause: Boolean = false,
+    onVoiceClick: (() -> Unit)? = null,
     isLast: Boolean = false,
     onDone: () -> Unit = {},
 ) {
@@ -427,6 +535,16 @@ private fun DeweyTextField(
         label = { Text(label) },
         placeholder = if (placeholder.isEmpty()) null else ({ Text(placeholder) }),
         supportingText = supporting?.let { text -> ({ Text(text) }) },
+        trailingIcon = onVoiceClick?.let { action ->
+            {
+                IconButton(onClick = action) {
+                    Icon(
+                        Icons.Outlined.Mic,
+                        contentDescription = stringResource(R.string.voice_input_for, label),
+                    )
+                }
+            }
+        },
         isError = error != null,
         singleLine = true,
         shape = MaterialTheme.shapes.medium,
