@@ -8,11 +8,12 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
 
     steps:
       - name: Checkout build branch
@@ -53,7 +54,6 @@ jobs:
           91944112d4177f64db65e3a0951bcd0c6e20ca8fe151659c70550b097c7f361a  khabar-cafe-v041/p07.b64
           EOF
           sha256sum --check "$RUNNER_TEMP/source.sha256"
-
           : > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
           decode() { base64 -d "$1" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"; }
           decode khabar-cafe-v041/p00.b64
@@ -76,12 +76,10 @@ jobs:
           decode khabar-cafe-v041/p05.b64
           decode khabar-cafe-v041/p06.b64
           decode khabar-cafe-v041/p07.b64
-
           xz -t "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
           mkdir -p kc
           tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
           test -f kc/khabar_cafe/pubspec.yaml
-          echo "Source restored successfully"
 
       - name: Restore Vazirmatn font assets
         shell: bash
@@ -92,7 +90,6 @@ jobs:
           for weight in Regular Medium SemiBold Bold; do
             curl --fail --location --retry 4 "$base/Vazirmatn-${weight}.ttf" -o "kc/khabar_cafe/assets/fonts/Vazirmatn-${weight}.ttf"
           done
-          test -s kc/khabar_cafe/assets/fonts/Vazirmatn-Regular.ttf
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -112,64 +109,41 @@ jobs:
         with:
           gradle-version: '9.1.0'
 
-      - name: Generate Gradle wrapper JAR
+      - name: Restore Gradle wrapper
         shell: bash
         run: |
           set -euo pipefail
           FLUTTER_BIN_DIR="$(dirname "$(command -v flutter)")"
           FLUTTER_SDK="$(cd "$FLUTTER_BIN_DIR/.." && pwd)"
           printf 'flutter.sdk=%s\n' "$FLUTTER_SDK" > kc/khabar_cafe/android/local.properties
-          cd kc/khabar_cafe/android
+          mkdir -p "$RUNNER_TEMP/wrapper-project"
+          cd "$RUNNER_TEMP/wrapper-project"
+          printf '' > build.gradle
           gradle wrapper --gradle-version 9.1.0
-          test -s gradle/wrapper/gradle-wrapper.jar
+          cp gradlew gradlew.bat "$GITHUB_WORKSPACE/kc/khabar_cafe/android/"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/kc/khabar_cafe/android/gradle/wrapper/"
+          chmod +x "$GITHUB_WORKSPACE/kc/khabar_cafe/android/gradlew"
 
-      - name: Checkout official TDLib
-        uses: actions/checkout@v4
-        with:
-          repository: tdlib/td
-          path: tdlib-src
-          fetch-depth: 1
-
-      - name: Patch official TDLib Android build to ARM64 only
+      - name: Reuse verified official TDLib ARM64 binary
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          cd tdlib-src/example/android
-          sed -i 's/for ABI in arm64-v8a armeabi-v7a x86_64 x86 ; do/for ABI in arm64-v8a ; do/' build-openssl.sh
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('Dockerfile')
-          s=p.read_text()
-          needle='RUN cd td && git merge-base --is-ancestor 872d8ebd3ba9d922169839e6a24cee08b02b328a "$COMMIT_HASH"\n'
-          insert=needle+"RUN sed -i 's/for ABI in arm64-v8a armeabi-v7a x86_64 x86 ; do/for ABI in arm64-v8a ; do/' td/example/android/build-tdlib.sh\n"
-          if needle not in s:
-              raise SystemExit('TDLib Dockerfile anchor not found')
-          p.write_text(s.replace(needle, insert))
-          PY
-
-      - name: Build official TDLib JSON ARM64
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd tdlib-src/example/android
-          docker build --build-arg TDLIB_INTERFACE=JSON --output "$RUNNER_TEMP/tdlib-output" .
-
-      - name: Expand TDLib output
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/tdlib-expanded"
-          while IFS= read -r -d '' archive; do unzip -o "$archive" -d "$RUNNER_TEMP/tdlib-expanded"; done < <(find "$RUNNER_TEMP/tdlib-output" -type f -name '*.zip' -print0)
-          cp -a "$RUNNER_TEMP/tdlib-output/." "$RUNNER_TEMP/tdlib-expanded/"
-
-      - name: Install libtdjson into app
-        shell: bash
-        working-directory: kc/khabar_cafe
-        run: |
-          set -euo pipefail
-          chmod +x scripts/install_tdlib_json.sh
-          scripts/install_tdlib_json.sh "$RUNNER_TEMP/tdlib-expanded"
-          test -f android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
+          curl --fail --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9156229731/zip" \
+            -o "$RUNNER_TEMP/tdlib-artifact.zip"
+          mkdir -p "$RUNNER_TEMP/tdlib-artifact"
+          unzip -q "$RUNNER_TEMP/tdlib-artifact.zip" -d "$RUNNER_TEMP/tdlib-artifact"
+          OLD_APK="$(find "$RUNNER_TEMP/tdlib-artifact" -type f -name '*.apk' | head -n 1)"
+          test -n "$OLD_APK"
+          mkdir -p kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a
+          unzip -p "$OLD_APK" lib/arm64-v8a/libtdjson.so > kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
+          echo 'f4ab4e72f681a94cfcc580aa07b9dcb5b51bc91cbfee6630cde0f601f1f6144f  kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so' | sha256sum --check
+          test -s kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
 
       - name: Flutter pub get
         working-directory: kc/khabar_cafe
@@ -188,6 +162,7 @@ jobs:
         run: |
           flutter build apk --release --target-platform android-arm64 --dart-define=TDLIB_ENABLED=true
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected-arm64.apk
+          sha256sum build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected-arm64.apk
 
       - name: Upload connected APK
         uses: actions/upload-artifact@v4
