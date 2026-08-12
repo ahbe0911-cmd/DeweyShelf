@@ -22,22 +22,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected=(
-            '40e1c42c364d889d615aeb221b47b1daa5afff6f428682b629c34146dfe76a30  khabar-cafe-v041/p00.b64'
-            '4ba6d43f803e8c368ae89557f823054c8cf573199b375f9977b496308214c797  khabar-cafe-v041/p01.b64'
-            '14cfb1696b5731269ef8916920ca3fbf20eaaad2481805a14f2f5edc7996042a  khabar-cafe-v041/p02.b64'
-            'b461529ad303a67d83f446d891d3d8e3fdc497bf8bd5e604176d5d6ca6227e82  khabar-cafe-v041/p03.b64'
-            '7310a2dbb7e8d3a723c1a0e65effdb8d49b8f8caece62a8f8bc05a347711597f  khabar-cafe-v041/p04.b64'
-            'adbd8bbd5c0baca358c405d1d50a95c958bb3e5090f86941ca114048ee4edeca  khabar-cafe-v041/p05.b64'
-            '1fb4a9ddc430dafb71a922fb68caeda47f125de19409f74cd66f84933095709d  khabar-cafe-v041/p06.b64'
-            '91944112d4177f64db65e3a0951bcd0c6e20ca8fe151659c70550b097c7f361a  khabar-cafe-v041/p07.b64'
-          )
-          printf '%s\n' "${expected[@]}" | sha256sum --check
+          cat > "$RUNNER_TEMP/source.sha256" <<'EOF'
+          40e1c42c364d889d615aeb221b47b1daa5afff6f428682b629c34146dfe76a30  khabar-cafe-v041/p00.b64
+          434e973a327010a63e1ceada12af18594d7051990c45f4dc3438672a4175b7ea  khabar-cafe-v041-repair/p01-0.b64
+          c46ef6cdb9d5187eaf8a576e1815db948261444ff8aeac99c41ca396e04a5165  khabar-cafe-v041-repair/p01-1.b64
+          cdedda0858397235dce6f3e4e7e9a4e68a7d808258f5a9183ff28e0a09ee3bbb  khabar-cafe-v041-repair/p01-2.b64
+          b8a77e5a07908e32ccc2df8497f4dd5b59725dc2bbd1878337a4fa2385cca894  khabar-cafe-v041-repair/p01-3.b64
+          14cfb1696b5731269ef8916920ca3fbf20eaaad2481805a14f2f5edc7996042a  khabar-cafe-v041/p02.b64
+          b461529ad303a67d83f446d891d3d8e3fdc497bf8bd5e604176d5d6ca6227e82  khabar-cafe-v041/p03.b64
+          7bc5f941f9a3be46a888e229fd136e7fc035006f2b26ce7e555f4d4766ec3e17  khabar-cafe-v041-repair/p04-0.b64
+          904cc992dc88faa7dba195ec8f3f363cf54394af14d01c1a897bc054c658160a  khabar-cafe-v041-repair/p04-1.b64
+          5096e4478c9cd3af7721c155de01fe29d9479f0cd9815b2dc1a362b090d68acd  khabar-cafe-v041-repair/p04-2.b64
+          307bb39834f8771ea10f6f112a8d75300809949f35116c5f08a94beaacbee0d7  khabar-cafe-v041-repair/p04-3.b64
+          adbd8bbd5c0baca358c405d1d50a95c958bb3e5090f86941ca114048ee4edeca  khabar-cafe-v041/p05.b64
+          1fb4a9ddc430dafb71a922fb68caeda47f125de19409f74cd66f84933095709d  khabar-cafe-v041/p06.b64
+          91944112d4177f64db65e3a0951bcd0c6e20ca8fe151659c70550b097c7f361a  khabar-cafe-v041/p07.b64
+          EOF
+          sha256sum --check "$RUNNER_TEMP/source.sha256"
+
           : > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
-          for part in khabar-cafe-v041/p*.b64; do
-            echo "Decoding $part ($(wc -c < "$part") bytes)"
-            base64 -d "$part" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
-          done
+          decode() { base64 -d "$1" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"; }
+          decode khabar-cafe-v041/p00.b64
+          for part in khabar-cafe-v041-repair/p01-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041/p02.b64
+          decode khabar-cafe-v041/p03.b64
+          for part in khabar-cafe-v041-repair/p04-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041/p05.b64
+          decode khabar-cafe-v041/p06.b64
+          decode khabar-cafe-v041/p07.b64
+
           xz -t "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
           mkdir -p kc
           tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
