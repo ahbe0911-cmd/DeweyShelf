@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -35,16 +36,23 @@ data class DeweyUiState(
     val filteredBooks: List<DeweyBook> = emptyList(),
     val shelfPositions: List<ShelfPosition> = emptyList(),
     val query: String = "",
-) {
-    val correctCount: Int get() = shelfPositions.count(ShelfPosition::isCorrect)
-    val moveCount: Int get() = shelfPositions.size - correctCount
-    val duplicateCount: Int get() = DeweySorter.duplicateCount(books)
-}
+    val correctCount: Int = 0,
+    val moveCount: Int = 0,
+    val duplicateCount: Int = 0,
+)
 
-private sealed interface BooksLoadState {
-    data object Loading : BooksLoadState
-    data class Ready(val books: List<DeweyBook>) : BooksLoadState
-    data object Error : BooksLoadState
+private data class PreparedCatalog(
+    val books: List<DeweyBook>,
+    val shelfPositions: List<ShelfPosition>,
+    val searchableText: List<String>,
+    val correctCount: Int,
+    val duplicateCount: Int,
+)
+
+private sealed interface CatalogLoadState {
+    data object Loading : CatalogLoadState
+    data class Ready(val catalog: PreparedCatalog) : CatalogLoadState
+    data object Error : CatalogLoadState
 }
 
 sealed interface SaveResult {
@@ -72,41 +80,59 @@ class DeweyViewModel(
     private val eventsFlow = MutableSharedFlow<AppEvent>(extraBufferCapacity = 8)
     val events = eventsFlow
 
-    private val booksState = retrySignal
+    private val catalogState = retrySignal
         .flatMapLatest {
             repository.observeBooks()
-                .map<List<DeweyBook>, BooksLoadState>(BooksLoadState::Ready)
-                .onStart { emit(BooksLoadState.Loading) }
-                .catch { emit(BooksLoadState.Error) }
+                .map<List<DeweyBook>, CatalogLoadState> { books ->
+                    val shelfPositions = DeweySorter.analyze(books)
+                    CatalogLoadState.Ready(
+                        PreparedCatalog(
+                            books = books,
+                            shelfPositions = shelfPositions,
+                            searchableText = books.map { book ->
+                                "${book.title} ${book.oneLineCallNumber}"
+                                    .normalizePersian()
+                                    .lowercase()
+                            },
+                            correctCount = shelfPositions.count(ShelfPosition::isCorrect),
+                            duplicateCount = DeweySorter.duplicateCount(books),
+                        ),
+                    )
+                }
+                .onStart { emit(CatalogLoadState.Loading) }
+                .catch { emit(CatalogLoadState.Error) }
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, BooksLoadState.Loading)
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CatalogLoadState.Loading)
 
     private val appliedQuery = query.debounce(180).onStart { emit("") }
 
-    val uiState = combine(booksState, query, appliedQuery) { loadState, visibleQuery, filterQuery ->
-        val books = (loadState as? BooksLoadState.Ready)?.books.orEmpty()
+    val uiState = combine(catalogState, query, appliedQuery) { loadState, visibleQuery, filterQuery ->
+        val catalog = (loadState as? CatalogLoadState.Ready)?.catalog
+        val books = catalog?.books.orEmpty()
         val normalizedQuery = filterQuery.normalizePersian().lowercase()
         val filtered = if (normalizedQuery.isEmpty()) {
             books
         } else {
-            books.filter { book ->
-                "${book.title} ${book.oneLineCallNumber}"
-                    .normalizePersian()
-                    .lowercase()
-                    .contains(normalizedQuery)
+            books.filterIndexed { index, _ ->
+                catalog?.searchableText?.get(index)?.contains(normalizedQuery) == true
             }
         }
+        val correctCount = catalog?.correctCount ?: 0
         DeweyUiState(
-            isLoading = loadState is BooksLoadState.Loading,
-            hasError = loadState is BooksLoadState.Error,
+            isLoading = loadState is CatalogLoadState.Loading,
+            hasError = loadState is CatalogLoadState.Error,
             books = books,
             filteredBooks = filtered,
-            shelfPositions = DeweySorter.analyze(books),
+            shelfPositions = catalog?.shelfPositions.orEmpty(),
             query = visibleQuery,
+            correctCount = correctCount,
+            moveCount = books.size - correctCount,
+            duplicateCount = catalog?.duplicateCount ?: 0,
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.Eagerly,
         initialValue = DeweyUiState(),
     )
 

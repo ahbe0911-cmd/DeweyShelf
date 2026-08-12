@@ -50,16 +50,16 @@ jobs:
       - name: Prepare installable package
         run: |
           mkdir -p apk
-          cp app/build/outputs/apk/debug/app-debug.apk apk/ChidemanYar-Dewey-v2.1.0.apk
-          sha256sum apk/ChidemanYar-Dewey-v2.1.0.apk > apk/ChidemanYar-Dewey-v2.1.0.sha256
+          cp app/build/outputs/apk/debug/app-debug.apk apk/ChidemanYar-Dewey-v2.2.0.apk
+          sha256sum apk/ChidemanYar-Dewey-v2.2.0.apk > apk/ChidemanYar-Dewey-v2.2.0.sha256
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ChidemanYar-Dewey-v2.1.0
+          name: ChidemanYar-Dewey-v2.2.0
           path: |
-            apk/ChidemanYar-Dewey-v2.1.0.apk
-            apk/ChidemanYar-Dewey-v2.1.0.sha256
+            apk/ChidemanYar-Dewey-v2.2.0.apk
+            apk/ChidemanYar-Dewey-v2.2.0.sha256
           if-no-files-found: error
 
   publish:
@@ -76,17 +76,17 @@ jobs:
       - name: Download tested APK
         uses: actions/download-artifact@v4
         with:
-          name: ChidemanYar-Dewey-v2.1.0
+          name: ChidemanYar-Dewey-v2.2.0
           path: apk
 
       - name: Publish APK to repository
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apk/ChidemanYar-Dewey-v2.1.0.apk apk/ChidemanYar-Dewey-v2.1.0.sha256
+          git add apk/ChidemanYar-Dewey-v2.2.0.apk apk/ChidemanYar-Dewey-v2.2.0.sha256
           if git diff --cached --quiet; then
             echo 'APK is already current.'
           else
-            git commit -m 'افزودن APK نسخه 2.1.0 [skip ci]'
+            git commit -m 'افزودن APK نسخه 2.2.0 [skip ci]'
             git push
           fi

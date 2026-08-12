@@ -75,10 +75,11 @@ object DeweySorter {
     fun analyze(books: List<DeweyBook>): List<ShelfPosition> {
         val sorted = sort(books)
         val counts = books.groupingBy(::labelKey).eachCount()
+        val originalIndexes = books.mapIndexed { index, book -> book.id to index }.toMap()
         return sorted.mapIndexed { index, book ->
             ShelfPosition(
                 book = book,
-                originalIndex = books.indexOfFirst { it.id == book.id },
+                originalIndex = originalIndexes[book.id] ?: index,
                 sortedIndex = index,
                 reason = reasonBetween(sorted.getOrNull(index - 1), book),
                 isDuplicate = counts[labelKey(book)]?.let { it > 1 } == true,
@@ -150,3 +151,106 @@ object DeweySorter {
     }
 }
 
+object VoiceInputNormalizer {
+    private val digitWords = mapOf(
+        "صفر" to "0",
+        "یک" to "1",
+        "یه" to "1",
+        "دو" to "2",
+        "سه" to "3",
+        "چهار" to "4",
+        "پنج" to "5",
+        "شش" to "6",
+        "هفت" to "7",
+        "هشت" to "8",
+        "نه" to "9",
+    )
+
+    private val numberWords = mapOf(
+        "صفر" to 0,
+        "یک" to 1,
+        "یه" to 1,
+        "دو" to 2,
+        "سه" to 3,
+        "چهار" to 4,
+        "پنج" to 5,
+        "شش" to 6,
+        "هفت" to 7,
+        "هشت" to 8,
+        "نه" to 9,
+        "ده" to 10,
+        "یازده" to 11,
+        "دوازده" to 12,
+        "سیزده" to 13,
+        "چهارده" to 14,
+        "پانزده" to 15,
+        "شانزده" to 16,
+        "هفده" to 17,
+        "هجده" to 18,
+        "نوزده" to 19,
+        "بیست" to 20,
+        "سی" to 30,
+        "چهل" to 40,
+        "پنجاه" to 50,
+        "شصت" to 60,
+        "هفتاد" to 70,
+        "هشتاد" to 80,
+        "نود" to 90,
+        "صد" to 100,
+        "یکصد" to 100,
+        "دویست" to 200,
+        "سیصد" to 300,
+        "چهارصد" to 400,
+        "پانصد" to 500,
+        "ششصد" to 600,
+        "هفتصد" to 700,
+        "هشتصد" to 800,
+        "نهصد" to 900,
+    )
+
+    fun forField(field: FormField, spokenText: String): String {
+        val normalized = spokenText.normalizePersian()
+        return when (field) {
+            FormField.Title -> normalized
+            FormField.AuthorLetter,
+            FormField.WorkMark,
+            -> normalized.firstNormalizedCharacter()
+            FormField.MainClass -> normalized.toSpokenDigits().take(3)
+            FormField.DecimalPart,
+            FormField.AuthorNumber,
+            -> normalized.toSpokenDigits().take(8)
+            FormField.Volume,
+            FormField.CopyNumber,
+            -> normalized.toSpokenDigits().take(3)
+            FormField.PublicationYear -> normalized.toSpokenDigits().take(4)
+        }
+    }
+
+    private fun String.toSpokenDigits(): String {
+        digitsOnly().takeIf(String::isNotEmpty)?.let { return it }
+        val tokens = replace(Regex("[^\u0600-\u06FF\\s]"), " ")
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() && it != "و" }
+        if (tokens.isEmpty()) return ""
+        if (tokens.all(digitWords::containsKey)) {
+            return tokens.joinToString("") { digitWords.getValue(it) }
+        }
+
+        var total = 0L
+        var current = 0L
+        tokens.forEach { token ->
+            when (token) {
+                "هزار" -> {
+                    total += (if (current == 0L) 1L else current) * 1_000L
+                    current = 0L
+                }
+                "میلیون" -> {
+                    total = (total + if (current == 0L) 1L else current) * 1_000_000L
+                    current = 0L
+                }
+                else -> current += numberWords[token] ?: return ""
+            }
+        }
+        return (total + current).toString()
+    }
+}
