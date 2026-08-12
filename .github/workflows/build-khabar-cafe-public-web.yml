@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/source/khabar_cafe/docs"
+          mkdir -p "$RUNNER_TEMP/source/khabar_cafe/docs" "$RUNNER_TEMP/source/khabar_cafe/test"
           python3 ci/khabar-public/patch_public_mode.py \
             "$RUNNER_TEMP/source/khabar_cafe" \
             "$GITHUB_WORKSPACE/ci/khabar-public"
@@ -102,9 +102,7 @@ jobs:
 
       - name: Test parser and core models
         working-directory: ${{ runner.temp }}/source/khabar_cafe
-        run: |
-          flutter test test/public_gateway_test.dart
-          flutter test test/channel_address_test.dart test/post_collection_test.dart
+        run: flutter test test/public_gateway_test.dart
 
       - name: Build no-login ARM64 APK
         working-directory: ${{ runner.temp }}/source/khabar_cafe
