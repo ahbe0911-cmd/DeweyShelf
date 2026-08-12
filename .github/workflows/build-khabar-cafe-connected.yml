@@ -1,0 +1,133 @@
+name: Build Khabar Cafe Connected APK
+
+on:
+  push:
+    branches:
+      - khabar-cafe-build
+    paths:
+      - .github/workflows/build-khabar-cafe-connected.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct Khabar Cafe source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            khabar-cafe-min2/part-00 \
+            khabar-cafe-min2/part-01 \
+            khabar-cafe-min2/part-02 \
+            khabar-cafe-min2/part-02-tail \
+            khabar-cafe-min2/part-03 \
+            khabar-cafe-min2/part-04 \
+            | tr -d '[:space:]' > /tmp/khabar-cafe.zip.b64
+          base64 --decode /tmp/khabar-cafe.zip.b64 > /tmp/khabar-cafe.zip
+          echo 'c4b9c6245affa909ea1acb06c5566194df7453143e41059da4696dd536136867  /tmp/khabar-cafe.zip' | sha256sum --check -
+          unzip -q /tmp/khabar-cafe.zip
+          test -f khabar_cafe/pubspec.yaml
+          test -f khabar_cafe/android/app/src/main/kotlin/ir/khabarcafe/app/TdlibTelegramNativeBridge.kt
+
+      - name: Remove optional bundled font declarations
+        shell: bash
+        working-directory: khabar_cafe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('pubspec.yaml')
+          s = p.read_text(encoding='utf-8')
+          marker = '\n  assets:'
+          if marker in s:
+              s = s.split(marker, 1)[0].rstrip() + '\n'
+          p.write_text(s, encoding='utf-8')
+          PY
+          cat pubspec.yaml
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up Gradle 9.1.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Restore Gradle wrapper
+        shell: bash
+        working-directory: khabar_cafe/android
+        run: |
+          set -euo pipefail
+          gradle wrapper --gradle-version 9.1.0
+          chmod +x gradlew
+
+      - name: Checkout official TDLib
+        uses: actions/checkout@v4
+        with:
+          repository: tdlib/td
+          path: .tdlib-src
+          fetch-depth: 1
+
+      - name: Build official TDLib JSON for Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .tdlib-src/example/android
+          docker build \
+            --build-arg TDLIB_INTERFACE=JSON \
+            --output "$RUNNER_TEMP/tdlib-output" \
+            .
+
+      - name: Expand official TDLib output
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tdlib-expanded"
+          while IFS= read -r -d '' archive; do
+            unzip -o "$archive" -d "$RUNNER_TEMP/tdlib-expanded"
+          done < <(find "$RUNNER_TEMP/tdlib-output" -type f -name '*.zip' -print0)
+          cp -a "$RUNNER_TEMP/tdlib-output/." "$RUNNER_TEMP/tdlib-expanded/"
+
+      - name: Bundle libtdjson into app
+        shell: bash
+        working-directory: khabar_cafe
+        run: |
+          set -euo pipefail
+          bash scripts/install_tdlib_json.sh "$RUNNER_TEMP/tdlib-expanded"
+          find android/app/src/main/jniLibs -type f -name 'libtdjson.so' -print
+          test "$(find android/app/src/main/jniLibs -type f -name 'libtdjson.so' | wc -l)" -gt 0
+
+      - name: Resolve packages
+        working-directory: khabar_cafe
+        run: flutter pub get
+
+      - name: Build connected release APK
+        working-directory: khabar_cafe
+        run: |
+          flutter build apk --release --dart-define=TDLIB_ENABLED=true
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/KhabarCafe-v0.3.1-TDLib.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KhabarCafe-v0.3.1-TDLib
+          path: khabar_cafe/build/app/outputs/flutter-apk/KhabarCafe-v0.3.1-TDLib.apk
+          if-no-files-found: error
+          retention-days: 14
