@@ -1,0 +1,26 @@
+name: Diagnose Khabar Source
+on:
+  push:
+    branches: [khabar-cafe-build]
+    paths: [.github/workflows/diagnose-khabar-source.yml]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hash source parts
+        shell: bash
+        run: |
+          set -e
+          for p in part-00 part-01 part-02 part-02-tail part-03 part-04; do
+            tr -d '[:space:]' < "khabar-cafe-min2/$p" > "/tmp/$p"
+            printf '%s ' "$p"
+            wc -c < "/tmp/$p" | tr '\n' ' '
+            sha256sum "/tmp/$p"
+          done
+          cat /tmp/part-00 /tmp/part-01 /tmp/part-02 /tmp/part-02-tail /tmp/part-03 /tmp/part-04 > /tmp/all.b64
+          printf 'all-b64 '; wc -c /tmp/all.b64; sha256sum /tmp/all.b64
+          base64 -d /tmp/all.b64 > /tmp/all.zip
+          printf 'zip '; wc -c /tmp/all.zip; sha256sum /tmp/all.zip
