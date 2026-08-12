@@ -1,0 +1,135 @@
+name: Khabar Cafe v0.4.1 connected APK
+
+on:
+  push:
+    branches:
+      - khabar-cafe-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Reassemble Khabar Cafe source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat khabar-cafe-v041/p*.b64 | base64 -d > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
+          mkdir -p kc
+          tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
+          test -f kc/khabar_cafe/pubspec.yaml
+          echo "Source restored successfully"
+
+      - name: Restore Vazirmatn font assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kc/khabar_cafe/assets/fonts
+          base='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf'
+          for weight in Regular Medium SemiBold Bold; do
+            curl --fail --location --retry 4 \
+              "$base/Vazirmatn-${weight}.ttf" \
+              -o "kc/khabar_cafe/assets/fonts/Vazirmatn-${weight}.ttf"
+          done
+          test -s kc/khabar_cafe/assets/fonts/Vazirmatn-Regular.ttf
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.44.8
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Gradle 9.1.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Generate Gradle wrapper JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLUTTER_BIN_DIR="$(dirname "$(command -v flutter)")"
+          FLUTTER_SDK="$(cd "$FLUTTER_BIN_DIR/.." && pwd)"
+          printf 'flutter.sdk=%s\n' "$FLUTTER_SDK" > kc/khabar_cafe/android/local.properties
+          cd kc/khabar_cafe/android
+          gradle wrapper --gradle-version 9.1.0
+          test -s gradle/wrapper/gradle-wrapper.jar
+
+      - name: Checkout official TDLib
+        uses: actions/checkout@v4
+        with:
+          repository: tdlib/td
+          path: tdlib-src
+          fetch-depth: 1
+
+      - name: Build official TDLib JSON for Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd tdlib-src/example/android
+          docker build \
+            --build-arg TDLIB_INTERFACE=JSON \
+            --output "$RUNNER_TEMP/tdlib-output" \
+            .
+
+      - name: Expand TDLib output
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tdlib-expanded"
+          while IFS= read -r -d '' archive; do
+            unzip -o "$archive" -d "$RUNNER_TEMP/tdlib-expanded"
+          done < <(find "$RUNNER_TEMP/tdlib-output" -type f -name '*.zip' -print0)
+          cp -a "$RUNNER_TEMP/tdlib-output/." "$RUNNER_TEMP/tdlib-expanded/"
+
+      - name: Install libtdjson into app
+        shell: bash
+        working-directory: kc/khabar_cafe
+        run: |
+          set -euo pipefail
+          chmod +x scripts/install_tdlib_json.sh
+          scripts/install_tdlib_json.sh "$RUNNER_TEMP/tdlib-expanded"
+          find android/app/src/main/jniLibs -type f -name 'libtdjson.so' -print
+          test "$(find android/app/src/main/jniLibs -type f -name 'libtdjson.so' | wc -l)" -gt 0
+
+      - name: Flutter pub get
+        working-directory: kc/khabar_cafe
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: kc/khabar_cafe
+        run: flutter analyze
+
+      - name: Flutter tests
+        working-directory: kc/khabar_cafe
+        run: flutter test
+
+      - name: Build connected release APK
+        working-directory: kc/khabar_cafe
+        run: |
+          flutter build apk --release --dart-define=TDLIB_ENABLED=true
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected.apk
+
+      - name: Upload connected APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: khabar-cafe-v0.4.1-connected-apk
+          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected.apk
+          if-no-files-found: error
+          retention-days: 14
