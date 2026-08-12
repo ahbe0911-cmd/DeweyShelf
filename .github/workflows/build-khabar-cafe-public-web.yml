@@ -89,6 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/source/khabar_cafe/android"
+          printf 'flutter.sdk=%s\nsdk.dir=%s\n' "$FLUTTER_ROOT" "$ANDROID_HOME" > local.properties
           gradle wrapper --gradle-version 9.1.0
           test -f gradle/wrapper/gradle-wrapper.jar
 
