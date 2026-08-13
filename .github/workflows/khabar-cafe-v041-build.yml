@@ -1,4 +1,4 @@
-name: Khabar Cafe v0.4.2 connected APK
+name: Khabar Cafe v0.4.3 connected APK
 
 on:
   push:
@@ -82,6 +82,18 @@ jobs:
           tar -xzf "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz" -C kc/khabar_cafe
           grep -q 'version: 0.4.2+6' kc/khabar_cafe/pubspec.yaml
 
+      - name: Apply v0.4.3 persistent-channel overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat khabar-cafe-v043-overlay/p*.b64 | base64 -d > "$RUNNER_TEMP/khabar-cafe-v043-overlay.tar.gz"
+          echo '0cb745fd53f3fa30adef728f1d201430c02ec565b181abeae7e5d978f36a4c4f  '"$RUNNER_TEMP/khabar-cafe-v043-overlay.tar.gz" | sha256sum --check
+          gzip -t "$RUNNER_TEMP/khabar-cafe-v043-overlay.tar.gz"
+          tar -xzf "$RUNNER_TEMP/khabar-cafe-v043-overlay.tar.gz" -C kc/khabar_cafe
+          sed -i "/^import 'dart:async';$/d" kc/khabar_cafe/lib/features/channels/application/channel_store.dart
+          grep -q 'version: 0.4.3+7' kc/khabar_cafe/pubspec.yaml
+          grep -q "channels.state.v1" kc/khabar_cafe/lib/features/channels/application/channel_store.dart
+
       - name: Restore Vazirmatn font assets
         shell: bash
         run: |
@@ -161,13 +173,13 @@ jobs:
         working-directory: kc/khabar_cafe
         run: |
           flutter build apk --release --target-platform android-arm64 --dart-define=TDLIB_ENABLED=true
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
-          sha256sum build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-cafe-v0.4.3-connected-arm64.apk
+          sha256sum build/app/outputs/flutter-apk/khabar-cafe-v0.4.3-connected-arm64.apk
 
       - name: Upload connected APK
         uses: actions/upload-artifact@v4
         with:
-          name: khabar-cafe-v0.4.2-connected-arm64-apk
-          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
+          name: khabar-cafe-v0.4.3-connected-arm64-apk
+          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-cafe-v0.4.3-connected-arm64.apk
           if-no-files-found: error
           retention-days: 14
