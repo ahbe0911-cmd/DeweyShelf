@@ -1,10 +1,9 @@
-name: Diagnose Khabar Cafe v0.4.2 overlay
+name: Diagnose Khabar Cafe v0.4.2 slices
 
 on:
   push:
     branches:
       - khabar-cafe-build
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,23 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify overlay parts
+        with:
+          fetch-depth: 0
+      - name: Hash original p06 p07 slices
         shell: bash
         run: |
           set -euo pipefail
-          cat > "$RUNNER_TEMP/overlay-parts.sha256" <<'EOF'
-          5b63d3b2864d70fe1053ccb756b6664ede7f4140e358e71b4533de58f0b7e898  khabar-cafe-v042-overlay/p00.b64
-          7cd1a51d2836ceca02628a1346f2137b99387ff9ba313133684920c47d491adc  khabar-cafe-v042-overlay/p01.b64
-          be899de00002e242b880eae82d424d317528e1084bc0e9712c8e0b70aeea6e96  khabar-cafe-v042-overlay/p02.b64
-          81664427af54f95811b4f059e4255724de8d32446dbf07656b2ae98569e52c7c  khabar-cafe-v042-overlay/p03.b64
-          a576e04f8695632b3a0ccb0914ece874b25316dac87a80e49901365785072d7c  khabar-cafe-v042-overlay/p04.b64
-          ebad0973715a4b15b2a85b0dd3640f937f52b959ac3b474e9837e1a7e0e0676b  khabar-cafe-v042-overlay/p05.b64
-          47af838d3bc200a585665244564840d0b7b57bbe46af55409ba950ef6afd967d  khabar-cafe-v042-overlay/p06.b64
-          7086e93cb646fc1fa5f6c00c0bdf81ffb79a779d1711bde824f8d45a6c3076ce  khabar-cafe-v042-overlay/p07.b64
-          ea7638f4ca048667d4f9d937bb5f7a913886bb90b43fa4c3989d030bf1002d64  khabar-cafe-v042-overlay/p08.b64
-          8528b5b2685808bc0e4c5aa7f1c4e604d708ad65148473db234039c52d36476f  khabar-cafe-v042-overlay/p09.b64
-          EOF
-          sha256sum --check "$RUNNER_TEMP/overlay-parts.sha256"
-          cat khabar-cafe-v042-overlay/p*.b64 | base64 -d > "$RUNNER_TEMP/overlay.tar.gz"
-          sha256sum "$RUNNER_TEMP/overlay.tar.gz"
-          gzip -t "$RUNNER_TEMP/overlay.tar.gz"
+          git show 8003cab809247066ae4562429d6b0ed33dd13a27:khabar-cafe-v042-overlay/p06.b64 > "$RUNNER_TEMP/p06"
+          git show 8003cab809247066ae4562429d6b0ed33dd13a27:khabar-cafe-v042-overlay/p07.b64 > "$RUNNER_TEMP/p07"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          for name in ('p06','p07'):
+              s=Path(__import__('os').environ['RUNNER_TEMP'], name).read_text()
+              print(name, 'len=', len(s), 'sha=', hashlib.sha256(s.encode()).hexdigest())
+              for i in range(0, len(s), 500):
+                  c=s[i:i+500]
+                  print(f'{name}-{i//500:02d} {hashlib.sha256(c.encode()).hexdigest()}')
+          PY
