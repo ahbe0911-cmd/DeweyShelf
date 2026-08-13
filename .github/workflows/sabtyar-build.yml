@@ -37,8 +37,9 @@ jobs:
           unzip -q /tmp/sabtyar-source.zip -d sabtyar
           test -f sabtyar/settings.gradle.kts
 
-          cat .build/ui221p.part00 .build/ui221p.part01 .build/ui221p.part02 .build/ui221p.part03 .build/ui221p.part04 > /tmp/ui221.b64
+          cat .build/ui221q.part00 .build/ui221q.part01 .build/ui221q.part02 .build/ui221q.part03 .build/ui221q.part04 .build/ui221q.part05 .build/ui221q.part06 > /tmp/ui221.b64
           test "$(stat -c%s /tmp/ui221.b64)" -eq 13328
+          echo 'dc02ee4369f910026e2f9af444e59e15a5277e0d669cf7c80d268f980bd6d535  /tmp/ui221.b64' | sha256sum -c -
           base64 -d /tmp/ui221.b64 | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
           sed -i 's/A4/A۴/g' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
           cat .build/theme221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
