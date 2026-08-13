@@ -63,6 +63,7 @@ jobs:
 
           python - <<'PY'
           from pathlib import Path
+          import re
           p = Path('sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt').read_text()
           assert 'از سمت راست: روز، ماه، سال' in p
           assert 'onNext = { dayRequester.requestFocus() }' in p
@@ -72,7 +73,7 @@ jobs:
           assert block.index('label = "سال"') < block.index('label = "ماه"') < block.index('label = "روز"')
           assert 'if (day.length == 2) monthRequester.requestFocus()' in block
           assert 'if (month.length == 2) yearRequester.requestFocus()' in block
-          assert 'if (year.length == 4) codeRequester.requestFocus()' in block
+          assert re.search(r'if \(year\.length == 4\)\s*\{[^}]*codeRequester\.requestFocus\(\)', block, re.S)
           print('Birth-date visual order verified: right to left = day, month, year')
           PY
 
