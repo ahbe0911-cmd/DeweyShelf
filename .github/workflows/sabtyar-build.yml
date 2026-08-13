@@ -29,23 +29,32 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Reconstruct Sabtyar v2.1
+      - name: Reconstruct Sabtyar v2.2
         run: |
           cat .build/sabtyar.part00 .build/sabtyar.part01 .build/sabtyar.part02 .build/sabtyar.part03 .build/sabtyar.part04 .build/sabtyar.part05 > /tmp/sabtyar-source.zip
           rm -rf sabtyar
           mkdir -p sabtyar
           unzip -q /tmp/sabtyar-source.zip -d sabtyar
           test -f sabtyar/settings.gradle.kts
-          cat .build/ui210s.part00 .build/ui210s.part01 .build/ui210s.part02 .build/ui210s.part03 .build/ui210s.part04 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          sed -i '984i }' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          cat .build/theme200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+
+          cat .build/ui221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          sed -i 's/A4/A۴/g' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          cat .build/theme221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
           cat .build/models200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/data/Models.kt
-          cat .build/pdf210.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
+          cat .build/pdf221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
+
+          mkdir -p sabtyar/app/src/main/res/font
+          cat .build/farfont221.part00 .build/farfont221.part01 .build/farfont221.part02 .build/farfont221.part03 | base64 -d | xz -d > sabtyar/app/src/main/res/font/far_nazanin.ttf
+          test "$(stat -c%s sabtyar/app/src/main/res/font/far_nazanin.ttf)" -eq 56732
+          echo 'f9abfdc13d9e7f72b2cf4cf7efc8d2cd578ddd1ac0ac6d971e2d8a133566e176  sabtyar/app/src/main/res/font/far_nazanin.ttf' | sha256sum -c -
+
           sed -E -i 's#androidx.room:room-runtime:[0-9.]+#androidx.room:room-runtime:2.8.4#g; s#androidx.room:room-ktx:[0-9.]+#androidx.room:room-ktx:2.8.4#g; s#androidx.room:room-compiler:[0-9.]+#androidx.room:room-compiler:2.8.4#g' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionCode = [0-9]+/versionCode = 210/' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionName = "[0-9.]+"/versionName = "2.1.0"/' sabtyar/app/build.gradle.kts
-          grep -n 'PaidCodesScreen\|PaidCodesButton\|چاپ A4 کدهای ملی' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          grep -n 'exportPaidCombined\|writeCodesA4' sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
+          sed -E -i 's/versionCode = [0-9]+/versionCode = 220/' sabtyar/app/build.gradle.kts
+          sed -E -i 's/versionName = "[0-9.]+"/versionName = "2.2.0"/' sabtyar/app/build.gradle.kts
+
+          grep -n 'PaidCodesScreen\|toPersianDigits\|چاپ A۴ کدهای ملی' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          grep -n 'far_nazanin\|FarNazaninFamily' sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+          grep -n 'toPersianDigits\|drawRect\|drawLine\|far_nazanin' sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
           grep 'versionCode\|versionName\|androidx.room' sabtyar/app/build.gradle.kts
 
       - name: Unit tests
@@ -58,16 +67,16 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v2.1.0.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v2.1.0.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging sabtyar-v2.1.0.apk | head -5
-          unzip -t sabtyar-v2.1.0.apk >/dev/null
-          sha256sum sabtyar-v2.1.0.apk | tee sabtyar-v2.1.0.sha256
+          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v2.2.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v2.2.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging sabtyar-v2.2.0.apk | head -5
+          unzip -t sabtyar-v2.2.0.apk >/dev/null
+          sha256sum sabtyar-v2.2.0.apk | tee sabtyar-v2.2.0.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sabtyar-v2.1.0-apk
+          name: sabtyar-v2.2.0-apk
           path: |
-            sabtyar-v2.1.0.apk
-            sabtyar-v2.1.0.sha256
+            sabtyar-v2.2.0.apk
+            sabtyar-v2.2.0.sha256
           if-no-files-found: error
