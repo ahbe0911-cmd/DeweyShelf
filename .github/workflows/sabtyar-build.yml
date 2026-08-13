@@ -29,20 +29,24 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Reconstruct Sabtyar v1.2
+      - name: Reconstruct Sabtyar v2
         run: |
           cat .build/sabtyar.part00 .build/sabtyar.part01 .build/sabtyar.part02 .build/sabtyar.part03 .build/sabtyar.part04 .build/sabtyar.part05 > /tmp/sabtyar-source.zip
           rm -rf sabtyar
           mkdir -p sabtyar
           unzip -q /tmp/sabtyar-source.zip -d sabtyar
           test -f sabtyar/settings.gradle.kts
-          cat .build/ui120.part0 .build/ui120.part1 .build/ui120.part2 .build/ui120.part3 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          cat .build/theme120.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+          cat .build/ui200.part0 .build/ui200.part1 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          cat .build/theme200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+          cat .build/models200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/data/Models.kt
+          cat .build/pdf200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
           sed -E -i 's#androidx.room:room-runtime:[0-9.]+#androidx.room:room-runtime:2.8.4#g; s#androidx.room:room-ktx:[0-9.]+#androidx.room:room-ktx:2.8.4#g; s#androidx.room:room-compiler:[0-9.]+#androidx.room:room-compiler:2.8.4#g' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionCode = [0-9]+/versionCode = 12/' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionName = "[0-9.]+"/versionName = "1.2.0"/' sabtyar/app/build.gradle.kts
+          sed -E -i 's/versionCode = [0-9]+/versionCode = 200/' sabtyar/app/build.gradle.kts
+          sed -E -i 's/versionName = "[0-9.]+"/versionName = "2.0.0"/' sabtyar/app/build.gradle.kts
+          grep -n 'PaidTableTitle\|CreateDocument\|yearRequester' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          grep -n 'pendingCount' sabtyar/app/src/main/java/com/sabtyar/app/data/Models.kt
+          grep -n 'copyToUri' sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
           grep 'versionCode\|versionName\|androidx.room' sabtyar/app/build.gradle.kts
-          grep -n 'PaidNationalCodeTable\|birthYearRequester' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
 
       - name: Unit tests
         working-directory: sabtyar
@@ -52,16 +56,18 @@ jobs:
         working-directory: sabtyar
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Rename and verify APK
+      - name: Verify APK
         run: |
-          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v1.2.0.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v1.2.0.apk
-          sha256sum sabtyar-v1.2.0.apk | tee sabtyar-v1.2.0.sha256
+          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v2.0.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v2.0.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging sabtyar-v2.0.0.apk | head -5
+          unzip -t sabtyar-v2.0.0.apk >/dev/null
+          sha256sum sabtyar-v2.0.0.apk | tee sabtyar-v2.0.0.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sabtyar-v1.2.0-apk
+          name: sabtyar-v2.0.0-apk
           path: |
-            sabtyar-v1.2.0.apk
-            sabtyar-v1.2.0.sha256
+            sabtyar-v2.0.0.apk
+            sabtyar-v2.0.0.sha256
           if-no-files-found: error
