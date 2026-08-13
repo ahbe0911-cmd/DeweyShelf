@@ -1,0 +1,107 @@
+--- a/android/app/src/main/kotlin/ir/khabarcafe/app/TdlibTelegramNativeBridge.kt
++++ b/android/app/src/main/kotlin/ir/khabarcafe/app/TdlibTelegramNativeBridge.kt
+@@ -37,6 +37,7 @@
+     @Volatile private var authorizationStatus: String = "checking"
+     @Volatile private var authorizationMessage: String? = null
+     @Volatile private var parametersSent = false
++    @Volatile private var connectionStatus: String = "unknown"
+ 
+     private val credentialPreferences =
+         context.getSharedPreferences("tdlib_credentials", Context.MODE_PRIVATE)
+@@ -221,9 +222,7 @@
+     private fun performAuthRequest(result: MethodChannel.Result, request: JSONObject) {
+         worker.execute {
+            runTdlibCall(result) {
+-                val previous = authorizationStatus
+-                this.request(request, 30)
+-                waitForAuthorizationChange(previous, 8_000)
++                requestAuthorizationTransition(request, timeoutMs = 75_000)
+                 null
+             }
+         }
+@@ -307,6 +306,13 @@
+                 val state = update.optJSONObject("authorization_state") ?: return
+                 handleAuthorizationState(state)
+             }
++            "updateConnectionState" -> {
++                connectionStatus = update.optJSONObject("state")?.optString("@type")
++                    ?.removePrefix("connectionState")
++                    ?.replaceFirstChar { it.lowercase() }
++                    ?.takeIf { it.isNOtBlank() }
++                    ?: "unknown"
++            }
+             else -> if (type.startsWith("authorizationState")) {
+                 handleAuthorizationState(update)
+             }
+@@ -366,6 +372,58 @@
+             .put("system_version", "Android ${Build.VERSION.RELEASE}")
+             .put("application_version", BuildConfig.VERSION_NAME)
+     }
+ 
++    private fun requestAuthorizationTransition(payload: JSONObject, timeoutMs: Long) {
++        val previous = authorizationStatus
++        val extra = "kc-auth-${sequence.getAndIncrement()}"
++        payload.put("@extra", extra)
++        val future = CompletableFuture<JSONObject>()
++        pending[extra] = future
++        if (!send(payload)) {
++            pending.remove(extra)
++            throw TdlibBridgeException("TDLIB_SEND_FAILED", "ارسال درخواست وروده به TDLib انجال نشد.")
++        }
++
++        val deadline = System.currentTimeMillis() + timeoutMs
++        var directResponse: JSONObject? = null
++        while (System.currentTimeMillis() < deadline) {
++            if (authorizationStatus != previous && authorizationStatus != "checking") {
++                pending.remove(extra)
++                return
++            }
++            if (future.isDone) {
++                directResponse = runCatching { future.getNow(null) }.getOrNull()
++                break
++            }
++            Thread.sleep(100)
++        }
++        pending.remove(extra)
++
++        directResponse?.let { response ->
++            if (response.optString("@type") == "error") {
++                throw TdlibBridgeException(
++                    code = "TDLIB_${response.optInt("code", 0)}",
++                    message = response.optString("message", "خطای تللرام"),
++                )
++            }
++            // A successful direct response can arrive before the authorization update.
++            waitForAuthorizationChange(previous, 15_000)
++            return
+�B��Y�
+]]ܚ^�][۔�]\�OH�]�[�\�H�]\������X���Y�Q^�\[ۊ���P�ӑU�Ԓ��SQS�U����]�ܚ�[Y[�]Y\��Y�J
+K��
+B��B���]�]H�[��]�ܚ�[Y[�]Y\��Y�J
+N���[��H�[�
+�ۛ�X�[۔�]\�H���XYH�O��o�)�,�+�6b6,vb6+�6)�,�6*�a6��,v)�aH6+�b�,H6+�,vb�)�`v*�6-6+ˈ6+�"6*6)�,va�6*�a6)�-6�va�+��6+ˈ����ۛ�X�[�����H�O��)�*�-v)�a6*6a�6o�,v)�a� او پراکسی تلگرام برقرار نشد. پراکی یا VPN را بررسی کنید."+        "connecting", "updating" -> "ارتباط با سرورهای تلگرام کامل نشد. VPN يا اتصال اینترنت را بررسی کنید و د؈باره تلاش کندید."+        else -> "TDLIb نتوانست به سرورهای تلگرام وصل شود. VPN یا پراکسی سیستم را فعال /بررسی کنید و د؈باره تلاش کندید."+    }
++
+     private fun request(payload: JSONObject, timeoutSeconds: Long = 20): JSONObject {
+         val extra = "kc-${sequence.getAndIncrement()}"
+         payload.put("@extra", extra)
+--- a/lib/features/auth/presentation/auth_gate.dart
++++ b/lib/features/auth/presentation/auth_gate.dart
+@@ -1,6 +1,7 @@
+ import 'dart:async';
+ 
+ import 'package:flutter/material.dart';
++import 'package:flutter/services.dart';
+ 
+ import '../../../core/config/app_config.dart';
+ import '../../../core/widgets/app_brand.dart';
+@@ -478,6 +479,10 @@
+         default:
+           return;
+       }
++    } on PlatformException catch (error) {
++      if (mounted) {
++        setState(() => _error = error.message ?? 'ورود به تلگرام انجال نشد.');
++      }
+     } on Object catch (error) {
+       if (mounted) setState(() => _error = 'ورود انجام نشد: $error');
+     } finally {
