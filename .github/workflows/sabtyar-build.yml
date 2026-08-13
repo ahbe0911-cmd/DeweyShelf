@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Reconstruct Sabtyar v2.2
+      - name: Reconstruct Sabtyar v2.3
         run: |
           cat .build/sabtyar.part00 .build/sabtyar.part01 .build/sabtyar.part02 .build/sabtyar.part03 .build/sabtyar.part04 .build/sabtyar.part05 > /tmp/sabtyar-source.zip
           rm -rf sabtyar
@@ -37,12 +37,12 @@ jobs:
           unzip -q /tmp/sabtyar-source.zip -d sabtyar
           test -f sabtyar/settings.gradle.kts
 
-          cat .build/ui221q.part00 .build/ui221q.part01 .build/ui221q.part02 .build/ui221q.part03 .build/ui221q.part04 .build/ui221q.part05 .build/ui221q.part06 > /tmp/ui221.b64
-          test "$(stat -c%s /tmp/ui221.b64)" -eq 13328
-          echo 'dc02ee4369f910026e2f9af444e59e15a5277e0d669cf7c80d268f980bd6d535  /tmp/ui221.b64' | sha256sum -c -
-          base64 -d /tmp/ui221.b64 | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          cat .build/ui230.part00 .build/ui230.part01 .build/ui230.part02 .build/ui230.part03 .build/ui230.part04 .build/ui230.part05 .build/ui230.part06 > /tmp/ui230.b64
+          test "$(stat -c%s /tmp/ui230.b64)" -eq 13128
+          echo '984e4b57d24cdacabc4fea2b4df85a26234a762480779c75fdcf0b2a695daf3a  /tmp/ui230.b64' | sha256sum -c -
+          base64 -d /tmp/ui230.b64 | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
           sed -i 's/A4/A۴/g' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          cat .build/theme221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+          cat .build/theme230_titr_nazanin.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
           cat .build/models200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/data/Models.kt
           cat .build/pdf221_far.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
 
@@ -51,12 +51,33 @@ jobs:
           test "$(stat -c%s sabtyar/app/src/main/res/font/far_nazanin.ttf)" -eq 56732
           echo 'f9abfdc13d9e7f72b2cf4cf7efc8d2cd578ddd1ac0ac6d971e2d8a133566e176  sabtyar/app/src/main/res/font/far_nazanin.ttf' | sha256sum -c -
 
+          cat .build/titr2k230.part00 .build/titr2k230.part01 .build/titr2k230.part02 .build/titr2k230.part03 .build/titr2k230.part04 .build/titr2k230.part05 .build/titr2k230.part06 .build/titr2k230.part07 .build/titr2k230.part08 .build/titr2k230.part09 .build/titr2k230.part10 .build/titr2k230.part11 .build/titr2k230.part12 .build/titr2k230.part13 .build/titr2k230.part14 .build/titr2k230.part15 .build/titr2k230.part16 > /tmp/titr230.b64
+          test "$(stat -c%s /tmp/titr230.b64)" -eq 32056
+          base64 -d /tmp/titr230.b64 | xz -d > sabtyar/app/src/main/res/font/far_titr.ttf
+          test "$(stat -c%s sabtyar/app/src/main/res/font/far_titr.ttf)" -eq 62268
+          echo 'be7aab09aec062c744235625ffc821e0964a4d12353ba11e5cfe0314a0f35ec4  sabtyar/app/src/main/res/font/far_titr.ttf' | sha256sum -c -
+
           sed -E -i 's#androidx.room:room-runtime:[0-9.]+#androidx.room:room-runtime:2.8.4#g; s#androidx.room:room-ktx:[0-9.]+#androidx.room:room-ktx:2.8.4#g; s#androidx.room:room-compiler:[0-9.]+#androidx.room:room-compiler:2.8.4#g' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionCode = [0-9]+/versionCode = 220/' sabtyar/app/build.gradle.kts
-          sed -E -i 's/versionName = "[0-9.]+"/versionName = "2.2.0"/' sabtyar/app/build.gradle.kts
+          sed -E -i 's/versionCode = [0-9]+/versionCode = 230/' sabtyar/app/build.gradle.kts
+          sed -E -i 's/versionName = "[0-9.]+"/versionName = "2.3.0"/' sabtyar/app/build.gradle.kts
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt').read_text()
+          assert 'از سمت راست: روز، ماه، سال' in p
+          assert 'onNext = { dayRequester.requestFocus() }' in p
+          block_start = p.index('CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr)')
+          block_end = p.index('از سمت راست: روز، ماه، سال', block_start)
+          block = p[block_start:block_end]
+          assert block.index('label = "سال"') < block.index('label = "ماه"') < block.index('label = "روز"')
+          assert 'if (day.length == 2) monthRequester.requestFocus()' in block
+          assert 'if (month.length == 2) yearRequester.requestFocus()' in block
+          assert 'if (year.length == 4) codeRequester.requestFocus()' in block
+          print('Birth-date visual order verified: right to left = day, month, year')
+          PY
 
           grep -n 'PaidCodesScreen\|toPersianDigits\|چاپ A۴ کدهای ملی' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
-          grep -n 'far_nazanin\|FarNazaninFamily' sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
+          grep -n 'far_nazanin\|FarNazaninFamily\|far_titr\|FarTitrFamily' sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
           grep -n 'toPersianDigits\|drawRect\|drawLine\|far_nazanin' sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
           grep 'versionCode\|versionName\|androidx.room' sabtyar/app/build.gradle.kts
 
@@ -70,16 +91,17 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v2.2.0.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v2.2.0.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging sabtyar-v2.2.0.apk | head -5
-          unzip -t sabtyar-v2.2.0.apk >/dev/null
-          sha256sum sabtyar-v2.2.0.apk | tee sabtyar-v2.2.0.sha256
+          cp sabtyar/app/build/outputs/apk/debug/app-debug.apk sabtyar-v2.3.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose sabtyar-v2.3.0.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging sabtyar-v2.3.0.apk | head -5
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump resources sabtyar-v2.3.0.apk | grep -E 'far_nazanin|far_titr'
+          unzip -t sabtyar-v2.3.0.apk >/dev/null
+          sha256sum sabtyar-v2.3.0.apk | tee sabtyar-v2.3.0.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sabtyar-v2.2.0-apk
+          name: sabtyar-v2.3.0-apk
           path: |
-            sabtyar-v2.2.0.apk
-            sabtyar-v2.2.0.sha256
+            sabtyar-v2.3.0.apk
+            sabtyar-v2.3.0.sha256
           if-no-files-found: error
