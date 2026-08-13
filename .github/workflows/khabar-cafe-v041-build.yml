@@ -81,7 +81,7 @@ jobs:
           tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
           test -f kc/khabar_cafe/pubspec.yaml
 
-      - name: Apply v0.4.1 analyzer fixes
+      - name: Apply v0.4.1 build fixes
         shell: bash
         run: |
           python3 - <<'PY'
@@ -100,6 +100,15 @@ jobs:
           s = s.replace(end, replacement, 1)
           s = s.replace('} on Object catch (error) {', '} on Object catch (_) {', 1)
           p.write_text(s)
+
+          test = Path('kc/khabar_cafe/test/widget_test.dart')
+          t = test.read_text()
+          old_wait = '    await tester.pumpAndSettle();'
+          if t.count(old_wait) != 2:
+              raise SystemExit('Expected two pumpAndSettle calls in widget test')
+          t = t.replace(old_wait, '    await tester.pump(const Duration(milliseconds: 200));', 1)
+          t = t.replace(old_wait, '    await tester.pump(const Duration(milliseconds: 350));', 1)
+          test.write_text(t)
           PY
 
       - name: Restore Vazirmatn font assets
