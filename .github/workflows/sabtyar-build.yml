@@ -37,6 +37,7 @@ jobs:
           unzip -q /tmp/sabtyar-source.zip -d sabtyar
           test -f sabtyar/settings.gradle.kts
           cat .build/ui210s.part00 .build/ui210s.part01 .build/ui210s.part02 .build/ui210s.part03 .build/ui210s.part04 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
+          sed -i '984i }' sabtyar/app/src/main/java/com/sabtyar/app/ui/SabtyarApp.kt
           cat .build/theme200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/ui/theme/Theme.kt
           cat .build/models200.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/data/Models.kt
           cat .build/pdf210.gz.b64 | base64 -d | gzip -d > sabtyar/app/src/main/java/com/sabtyar/app/pdf/PdfExporter.kt
