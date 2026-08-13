@@ -1,4 +1,4 @@
-name: Khabar Cafe v0.4.1 connected APK
+name: Khabar Cafe v0.4.2 connected APK
 
 on:
   push:
@@ -19,41 +19,10 @@ jobs:
       - name: Checkout build branch
         uses: actions/checkout@v4
 
-      - name: Reassemble Khabar Cafe source
+      - name: Reassemble verified v0.4.1 source
         shell: bash
         run: |
           set -euo pipefail
-          cat > "$RUNNER_TEMP/source.sha256" <<'EOF'
-          40e1c42c364d889d615aeb221b47b1daa5afff6f428682b629c34146dfe76a30  khabar-cafe-v041/p00.b64
-          434e973a327010a63e1ceada12af18594d7051990c45f4dc3438672a4175b7ea  khabar-cafe-v041-repair/p01-0.b64
-          c46ef6cdb9d5187eaf8a576e1815db948261444ff8aeac99c41ca396e04a5165  khabar-cafe-v041-repair/p01-1.b64
-          cdedda0858397235dce6f3e4e7e9a4e68a7d808258f5a9183ff28e0a09ee3bbb  khabar-cafe-v041-repair/p01-2.b64
-          8aa57023b4ec0fbb7712ae813c21520a7f37c4b30546f9b09ed57e2e007ee4e5  khabar-cafe-v041-repair2/p01-3-0.b64
-          bbc02d6ee81fd03e4a91d113ae339c74c84d907f8bdb55f49fe04413e1664748  khabar-cafe-v041-repair3/p01-3-1-0.b64
-          d185b487af5f5e70b902cf652e158b7fac89b58f0ffaaccbda3735ef8e4310f7  khabar-cafe-v041-repair3/p01-3-1-1.b64
-          15f80b324fb7ba3d620a6ec7083866e4b5b2a8c9a87e362dc2a82ec81e9eaebf  khabar-cafe-v041-repair3/p01-3-1-2.b64
-          91c07da2ea38e318539ab489c7275383d51397c48c4aaf0dd45dceb580417c0f  khabar-cafe-v041-repair3/p01-3-1-3.b64
-          1297ffb6023b3664eb81aa023445207130225a4064c5dc87b569535daac1dff9  khabar-cafe-v041-repair3/p01-3-1-4.b64
-          deb2bfaaaa5815ec2968892e2cf25c7cc0e489afba2e8bbb124a9364b967cb63  khabar-cafe-v041-repair2/p01-3-2.b64
-          6cf66ae0a23971a37fbc1cf42eeeb856ed506cd39d1f29c69385ebd31ec492bc  khabar-cafe-v041-repair2/p01-3-3.b64
-          14cfb1696b5731269ef8916920ca3fbf20eaaad2481805a14f2f5edc7996042a  khabar-cafe-v041/p02.b64
-          b461529ad303a67d83f446d891d3d8e3fdc497bf8bd5e604176d5d6ca6227e82  khabar-cafe-v041/p03.b64
-          7bc5f941f9a3be46a888e229fd136e7fc035006f2b26ce7e555f4d4766ec3e17  khabar-cafe-v041-repair/p04-0.b64
-          904cc992dc88faa7dba195ec8f3f363cf54394af14d01c1a897bc054c658160a  khabar-cafe-v041-repair/p04-1.b64
-          5096e4478c9cd3af7721c155de01fe29d9479f0cd9815b2dc1a362b090d68acd  khabar-cafe-v041-repair/p04-2.b64
-          145916dccd4175c018b89cb9cb7b270f28e9c0ab2679e4b0588b8b942c1171be  khabar-cafe-v041-repair2/p04-3-0.b64
-          1a1781a982af71842a0c2d85319720e023e82305532820ec89bad15e2b4893c3  khabar-cafe-v041-repair2/p04-3-1.b64
-          914f4c5e06cc39d7ce96d938f3b26465b02af36de96cf514528d90cf7a45614a  khabar-cafe-v041-repair3/p04-3-2-0.b64
-          d2f0fc5e6eea716d487500f04fe784df8e1c2559b908586e341fda819d7811d6  khabar-cafe-v041-repair3/p04-3-2-1.b64
-          65c4b84f2493104f7dc4c1191f3d71c05535c882e3467458103ee0801c9f3759  khabar-cafe-v041-repair3/p04-3-2-2.b64
-          1c4370059291388cd0efed4477c760df8dda5d8c0d39cd3206db6bc81271f0bc  khabar-cafe-v041-repair3/p04-3-2-3.b64
-          5a037668f9a5006e3c6f5c2fd13d6899ad9aa5d30569cc21b3b82e4fe72b5093  khabar-cafe-v041-repair3/p04-3-2-4.b64
-          950e344a906c1542263aefd7f749d8e8d41122aef34b76fd2893f901f16dff98  khabar-cafe-v041-repair2/p04-3-3.b64
-          adbd8bbd5c0baca358c405d1d50a95c958bb3e5090f86941ca114048ee4edeca  khabar-cafe-v041/p05.b64
-          1fb4a9ddc430dafb71a922fb68caeda47f125de19409f74cd66f84933095709d  khabar-cafe-v041/p06.b64
-          91944112d4177f64db65e3a0951bcd0c6e20ca8fe151659c70550b097c7f361a  khabar-cafe-v041/p07.b64
-          EOF
-          sha256sum --check "$RUNNER_TEMP/source.sha256"
           : > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
           decode() { base64 -d "$1" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"; }
           decode khabar-cafe-v041/p00.b64
@@ -81,26 +50,15 @@ jobs:
           tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
           test -f kc/khabar_cafe/pubspec.yaml
 
-      - name: Apply v0.4.1 build fixes
+      - name: Apply verified v0.4.2 overlay
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('kc/khabar_cafe/lib/features/feed/presentation/feed_page.dart')
-          s = p.read_text()
-          old = """final class _PostTextParts {\n  const _PostTextParts({required this.title, required this.body});\n\n  final String title;\n  final String body;\n\n  factory _PostTextParts.from(TelegramPost post) {\n"""
-          new = """final class _PostTextParts {\n  const _PostTextParts({required this.title, required this.body});\n\n  factory _PostTextParts.from(TelegramPost post) {\n"""
-          if old not in s:
-              raise SystemExit('PostTextParts constructor anchor not found')
-          s = s.replace(old, new, 1)
-          end = """    return _PostTextParts(title: '', body: combined);\n  }\n}\n\nfinal class _MediaPreview"""
-          replacement = """    return _PostTextParts(title: '', body: combined);\n  }\n\n  final String title;\n  final String body;\n}\n\nfinal class _MediaPreview"""
-          if end not in s:
-              raise SystemExit('PostTextParts factory end anchor not found')
-          s = s.replace(end, replacement, 1)
-          s = s.replace('} on Object catch (error) {', '} on Object catch (_) {', 1)
-          p.write_text(s)
-          PY
+          set -euo pipefail
+          cat khabar-cafe-v042-overlay/p*.b64 | base64 -d > "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz"
+          echo 'e531f5c679c0013f4b4d8101a69d71a959a75fd2cb9501609ab3ec4f43826c49  '"$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz" | sha256sum --check
+          gzip -t "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz"
+          tar -xzf "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz" -C kc/khabar_cafe
+          grep -q 'version: 0.4.2+6' kc/khabar_cafe/pubspec.yaml
 
       - name: Restore Vazirmatn font assets
         shell: bash
@@ -155,7 +113,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9156229731/zip" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9167725364/zip" \
             -o "$RUNNER_TEMP/tdlib-artifact.zip"
           mkdir -p "$RUNNER_TEMP/tdlib-artifact"
           unzip -q "$RUNNER_TEMP/tdlib-artifact.zip" -d "$RUNNER_TEMP/tdlib-artifact"
@@ -181,13 +139,13 @@ jobs:
         working-directory: kc/khabar_cafe
         run: |
           flutter build apk --release --target-platform android-arm64 --dart-define=TDLIB_ENABLED=true
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected-arm64.apk
-          sha256sum build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected-arm64.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
+          sha256sum build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
 
       - name: Upload connected APK
         uses: actions/upload-artifact@v4
         with:
-          name: khabar-cafe-v0.4.1-connected-arm64-apk
-          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-cafe-v0.4.1-connected-arm64.apk
+          name: khabar-cafe-v0.4.2-connected-arm64-apk
+          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-cafe-v0.4.2-connected-arm64.apk
           if-no-files-found: error
           retention-days: 14
