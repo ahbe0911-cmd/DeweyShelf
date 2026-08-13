@@ -98,7 +98,123 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          patch -p1 -d kc/khabar_cafe < khabar-cafe-v044-auth.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('kc/khabar_cafe')
+          p = root / 'android/app/src/main/kotlin/ir/khabarcafe/app/TdlibTelegramNativeBridge.kt'
+          s = p.read_text()
+
+          if 'connectionStatus: String' not in s:
+              marker = '    @Volatile private var parametersSent = false\n'
+              if marker not in s:
+                  raise SystemExit('parameters marker missing')
+              s = s.replace(marker, marker + '    @Volatile private var connectionStatus: String = "unknown"\n', 1)
+
+          start = s.find('    private fun performAuthRequest(')
+          end = s.find('    private fun withRequiredString(', start)
+          if start < 0 or end < 0:
+              raise SystemExit('performAuthRequest bounds missing')
+          s = s[:start] + '''    private fun performAuthRequest(result: MethodChannel.Result, request: JSONObject) {
+              worker.execute {
+                  runTdlibCall(result) {
+                      requestAuthorizationTransition(request, timeoutMs = 75_000)
+                      null
+                  }
+              }
+          }
+
+          ''' + s[end:]
+
+          if '"updateConnectionState" ->' not in s:
+              marker = '        when (val type = update.optString("@type")) {\n'
+              if marker not in s:
+                  raise SystemExit('processUpdate marker missing')
+              case = '''            "updateConnectionState" -> {
+                  connectionStatus = update.optJSONObject("state")?.optString("@type")
+                      ?.takeIf { it.isNotBlank() }
+                      ?: "unknown"
+              }
+          '''
+              s = s.replace(marker, marker + case, 1)
+
+          if 'private fun requestAuthorizationTransition(' not in s:
+              marker = '    private fun request(payload: JSONObject, timeoutSeconds: Long = 20): JSONObject {\n'
+              if marker not in s:
+                  raise SystemExit('request marker missing')
+              helper = '''    private fun requestAuthorizationTransition(payload: JSONObject, timeoutMs: Long) {
+              val previous = authorizationStatus
+              val extra = "kc-auth-${sequence.getAndIncrement()}"
+              payload.put("@extra", extra)
+              val future = CompletableFuture<JSONObject>()
+              pending[extra] = future
+              if (!send(payload)) {
+                  pending.remove(extra)
+                  throw TdlibBridgeException("TDLIB_SEND_FAILED", "ارسال درخواست ورود به TDLib انجام نشد.")
+              }
+
+              val deadline = System.currentTimeMillis() + timeoutMs
+              var directResponse: JSONObject? = null
+              while (System.currentTimeMillis() < deadline) {
+                  if (authorizationStatus != previous && authorizationStatus != "checking") {
+                      pending.remove(extra)
+                      return
+                  }
+                  if (future.isDone) {
+                      directResponse = runCatching { future.get() }.getOrNull()
+                      break
+                  }
+                  Thread.sleep(100)
+              }
+              pending.remove(extra)
+
+              directResponse?.let { response ->
+                  if (response.optString("@type") == "error") {
+                      throw TdlibBridgeException(
+                          code = "TDLIB_${response.optInt("code", 0)}",
+                          message = response.optString("message", "خطای تلگرام"),
+                      )
+                  }
+                  waitForAuthorizationChange(previous, 15_000)
+                  return
+              }
+
+              if (authorizationStatus != previous) return
+              throw TdlibBridgeException("TDLIB_NETWORK_TIMEOUT", networkTimeoutMessage())
+          }
+
+          private fun networkTimeoutMessage(): String = when (connectionStatus) {
+              "connectionStateReady" -> "پاسخ ورود از تلگرام دیر دریافت شد. دوباره تلاش کنید."
+              "connectionStateConnectingToProxy" -> "اتصال به پراکسی تلگرام برقرار نشد. پراکسی یا VPN را بررسی کنید."
+              "connectionStateConnecting", "connectionStateUpdating" -> "ارتباط با سرورهای تلگرام کامل نشد. VPN یا اینترنت را بررسی کنید و دوباره تلاش کنید."
+              else -> "TDLib نتوانست به سرورهای تلگرام وصل شود. VPN یا پراکسی سیستم را فعال یا بررسی کنید و دوباره تلاش کنید."
+          }
+
+          '''
+              s = s.replace(marker, helper + marker, 1)
+
+          p.write_text(s)
+
+          p = root / 'lib/features/auth/presentation/auth_gate.dart'
+          s = p.read_text()
+          if "import 'package:flutter/services.dart';" not in s:
+              marker = "import 'package:flutter/material.dart';\n"
+              if marker not in s:
+                  raise SystemExit('Flutter material import missing')
+              s = s.replace(marker, marker + "import 'package:flutter/services.dart';\n", 1)
+
+          submit = s.find('  Future<void> _submit() async {', s.find('final class _LoginPageState'))
+          catch = s.find('    } on Object catch (error) {', submit)
+          if submit < 0 or catch < 0:
+              raise SystemExit('Flutter login catch missing')
+          replacement = '''    } on PlatformException catch (error) {
+              if (mounted) {
+                  setState(() => _error = error.message ?? 'ورود به تلگرام انجام نشد.');
+              }
+          '''
+          s = s[:catch] + replacement + s[catch:]
+          p.write_text(s)
+          PY
           sed -i 's/version: 0.4.3+7/version: 0.4.4+8/' kc/khabar_cafe/pubspec.yaml
           sed -i 's/نسخه آزمایشی ۰.۴.۳/نسخه آزمایشی ۰.۴.۴/' kc/khabar_cafe/lib/core/config/app_config.dart
           grep -q 'version: 0.4.4+8' kc/khabar_cafe/pubspec.yaml
