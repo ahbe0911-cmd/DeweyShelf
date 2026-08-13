@@ -1,0 +1,201 @@
+name: Khabar Rooz v0.4.2 connected APK
+
+on:
+  push:
+    branches: [khabar-rooz-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble verified v0.4.1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
+          decode() { base64 -d "$1" >> "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"; }
+          decode khabar-cafe-v041/p00.b64
+          decode khabar-cafe-v041-repair/p01-0.b64
+          decode khabar-cafe-v041-repair/p01-1.b64
+          decode khabar-cafe-v041-repair/p01-2.b64
+          decode khabar-cafe-v041-repair2/p01-3-0.b64
+          for part in khabar-cafe-v041-repair3/p01-3-1-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041-repair2/p01-3-2.b64
+          decode khabar-cafe-v041-repair2/p01-3-3.b64
+          decode khabar-cafe-v041/p02.b64
+          decode khabar-cafe-v041/p03.b64
+          decode khabar-cafe-v041-repair/p04-0.b64
+          decode khabar-cafe-v041-repair/p04-1.b64
+          decode khabar-cafe-v041-repair/p04-2.b64
+          decode khabar-cafe-v041-repair2/p04-3-0.b64
+          decode khabar-cafe-v041-repair2/p04-3-1.b64
+          for part in khabar-cafe-v041-repair3/p04-3-2-*.b64; do decode "$part"; done
+          decode khabar-cafe-v041-repair2/p04-3-3.b64
+          decode khabar-cafe-v041/p05.b64
+          decode khabar-cafe-v041/p06.b64
+          decode khabar-cafe-v041/p07.b64
+          xz -t "$RUNNER_TEMP/khabar-cafe-v041.tar.xz"
+          mkdir -p kc
+          tar -xJf "$RUNNER_TEMP/khabar-cafe-v041.tar.xz" -C kc
+          test -f kc/khabar_cafe/pubspec.yaml
+
+      - name: Reconstruct verified v0.4.2 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          for part in 00 01 02 03 04 05 06 07 08 09; do
+            git show 8003cab809247066ae4562429d6b0ed33dd13a27:khabar-cafe-v042-overlay/p${part}.b64 > "$RUNNER_TEMP/p${part}.b64"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os
+          root = Path(os.environ['RUNNER_TEMP'])
+          p06 = (root / 'p06.b64').read_text()
+          p07 = (root / 'p07.b64').read_text()
+          fix06 = "lTMyqEG0lzdpBCRgY5ClTbS5udLbq7PetGEpu3Xwh8NPD76Eq+gDFrLjNaXMQ1lNhTwPaxODxMRLf9TDbDDpr9/WsfKzxojq1GZzjAaSwHVyJyINcE4YrXOkt0Bi0O1ITR6mWRsuSTAdxeGUuLkGPvbjkRwzDU83b3UqtitU5U663dvKHh1fjdy1MlCb4UdK6yLxzWbMrJLODQ9gJXPHZRn3d8Gn0Ch2n0AC0R3nFU2maD117XzvmCZNFv2LG9ePVKacFlmecAN2osud0Zf+2qhgiDsfDj9vhQ/b1QGufbSuPtjn69waaB2wAweWZ+txn8mie97z4eCMiqNlLtwwEZ6GbIs4e1/ktuISa5HKcFJkUN+6gQB4TGWAJDwq81hVLpJX1h/95CemHEoyynaAmCA6ZjfXSkla3GrRhvWz0Rbs8oB5K3CTP5KCIG/1xyqvxBuwcWpdpa7z6ywdt1v/Ov7XcYuCEZNx4dco88qVh6vpmWMRi3Dj"
+          fix07 = "vSnfUVux1pRA1mrB9toe8/2Y7t8dkGl4xR1It6BDYYwGIGlWtEAj0jkdAvmC9cdGR3aa+esiG7dqUz0aDVvOItU4i/tEzBhCN4WYYXWbyzKG5YjvI+pCglanhIMhJjBiu+AHVA3/9osH+O8w28F/R4MWubAA7sTAmtXQut5stmAD1xKK4ExfVGZlXKaxpfFYzMWKfCoYsyUxDHW8ZVU+I+BS5oXwyqpMekXOFigZWRs1ibysqo5GRNICVABkVWYzAtIIa5TZ9l3Aec9u3QDi37fHz6ItEOZsnffwXb+Z5uC/ygBXvCgnhNXvab8Pst+TLIjcH0prA/h7q4axG0LiKgf+nunBzzkba/Ngrwrb/8SRkNp1lQ0wXOXdVwTKlSCYUwjXEG4uTWP4Ibvws6RpFeiwNJULDyuopCKP6VZeicEqZwIjrwQzP0Yc18Pfg9chuA1I6NYfngqfQr1zNIR8Jx1sCPY+lzIeECIbqaAhSbOh/tpQe6Vy"
+          assert len(p06) == 4000 and len(p07) == 4000
+          p06 = p06[:1000] + fix06 + p06[1500:]
+          p07 = p07[:3500] + fix07
+          assert hashlib.sha256(p06.encode()).hexdigest() == '47af838d3bc200a585665244564840d0b7b57bbe46af55409ba950ef6afd967d'
+          assert hashlib.sha256(p07.encode()).hexdigest() == '7086e93cb646fc1fa5f6c00c0bdf81ffb79a779d1711bde824f8d45a6c3076ce'
+          (root / 'p06.b64').write_text(p06)
+          (root / 'p07.b64').write_text(p07)
+          PY
+          cat "$RUNNER_TEMP"/p{00,01,02,03,04,05,06,07,08,09}.b64 | base64 -d > "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz"
+          echo 'e531f5c679c0013f4b4d8101a69d71a959a75fd2cb9501609ab3ec4f43826c49  '"$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/khabar-cafe-v042-overlay.tar.gz" -C kc/khabar_cafe
+
+      - name: Brand identical build as Khabar Rooz
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('kc/khabar_cafe')
+          replacements = {
+              root/'lib/core/config/app_config.dart': [('خبر کافی‌نت', 'خبر روز'), ('ir.khabarcafe.app/tdlib', 'ir.khabarrooz.app/tdlib')],
+              root/'android/app/build.gradle.kts': [('ir.khabarcafe.app', 'ir.khabarrooz.app')],
+              root/'android/app/src/main/AndroidManifest.xml': [('خبر کافی‌نت', 'خبر روز')],
+              root/'android/app/src/main/cpp/tdjson_loader.cpp': [('Java_ir_khabarcafe_app_', 'Java_ir_khabarrooz_app_')],
+          }
+          for path, pairs in replacements.items():
+              text = path.read_text()
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'missing branding anchor {old!r} in {path}')
+                  text = text.replace(old, new)
+              path.write_text(text)
+          old_dir = root/'android/app/src/main/kotlin/ir/khabarcafe/app'
+          new_dir = root/'android/app/src/main/kotlin/ir/khabarrooz/app'
+          new_dir.mkdir(parents=True, exist_ok=True)
+          for path in old_dir.glob('*.kt'):
+              text = path.read_text().replace('package ir.khabarcafe.app', 'package ir.khabarrooz.app')
+              text = text.replace('ir.khabarcafe.app/tdlib', 'ir.khabarrooz.app/tdlib')
+              (new_dir/path.name).write_text(text)
+          for path in old_dir.glob('*.kt'):
+              path.unlink()
+          assert 'خبر روز' in (root/'lib/core/config/app_config.dart').read_text()
+          assert 'applicationId = "ir.khabarrooz.app"' in (root/'android/app/build.gradle.kts').read_text()
+          PY
+
+      - name: Restore Vazirmatn font assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kc/khabar_cafe/assets/fonts
+          base='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf'
+          for weight in Regular Medium SemiBold Bold; do
+            curl --fail --location --retry 4 "$base/Vazirmatn-${weight}.ttf" -o "kc/khabar_cafe/assets/fonts/Vazirmatn-${weight}.ttf"
+          done
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.44.8
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Set up Gradle 9.1.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Restore Gradle wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLUTTER_BIN_DIR="$(dirname "$(command -v flutter)")"
+          FLUTTER_SDK="$(cd "$FLUTTER_BIN_DIR/.." && pwd)"
+          printf 'flutter.sdk=%s\n' "$FLUTTER_SDK" > kc/khabar_cafe/android/local.properties
+          mkdir -p "$RUNNER_TEMP/wrapper-project"
+          cd "$RUNNER_TEMP/wrapper-project"
+          printf '' > build.gradle
+          gradle wrapper --gradle-version 9.1.0
+          cp gradlew gradlew.bat "$GITHUB_WORKSPACE/kc/khabar_cafe/android/"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/kc/khabar_cafe/android/gradle/wrapper/"
+          chmod +x "$GITHUB_WORKSPACE/kc/khabar_cafe/android/gradlew"
+
+      - name: Reuse verified official TDLib ARM64 binary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9167725364/zip" \
+            -o "$RUNNER_TEMP/tdlib-artifact.zip"
+          mkdir -p "$RUNNER_TEMP/tdlib-artifact"
+          unzip -q "$RUNNER_TEMP/tdlib-artifact.zip" -d "$RUNNER_TEMP/tdlib-artifact"
+          OLD_APK="$(find "$RUNNER_TEMP/tdlib-artifact" -type f -name '*.apk' | head -n 1)"
+          test -n "$OLD_APK"
+          mkdir -p kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a
+          unzip -p "$OLD_APK" lib/arm64-v8a/libtdjson.so > kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so
+          echo 'f4ab4e72f681a94cfcc580aa07b9dcb5b51bc91cbfee6630cde0f601f1f6144f  kc/khabar_cafe/android/app/src/main/jniLibs/arm64-v8a/libtdjson.so' | sha256sum --check
+
+      - name: Flutter pub get
+        working-directory: kc/khabar_cafe
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: kc/khabar_cafe
+        run: flutter analyze
+
+      - name: Flutter logic tests
+        working-directory: kc/khabar_cafe
+        run: flutter test test/channel_address_test.dart test/post_collection_test.dart
+
+      - name: Build Khabar Rooz ARM64 release APK
+        working-directory: kc/khabar_cafe
+        run: |
+          flutter build apk --release --target-platform android-arm64 --dart-define=TDLIB_ENABLED=true
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/khabar-rooz-v0.4.2-connected-arm64.apk
+          sha256sum build/app/outputs/flutter-apk/khabar-rooz-v0.4.2-connected-arm64.apk
+
+      - name: Upload Khabar Rooz APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: khabar-rooz-v0.4.2-connected-arm64-apk
+          path: kc/khabar_cafe/build/app/outputs/flutter-apk/khabar-rooz-v0.4.2-connected-arm64.apk
+          if-no-files-found: error
+          retention-days: 14
