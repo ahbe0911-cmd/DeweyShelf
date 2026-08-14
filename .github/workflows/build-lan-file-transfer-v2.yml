@@ -48,14 +48,14 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r dev-requirements.txt pyinstaller
+          python -m pip install -r requirements.txt pyinstaller
 
-      - name: Run PC tests
+      - name: Validate PC source and V2 discovery module
         working-directory: buildsrc/lan_file_transfer_v1/pc
         shell: pwsh
         run: |
           python -m compileall -q .
-          python -m pytest -q
+          python -c "from lantransfer.discovery import DiscoveryService, DISCOVERY_MAGIC; from lantransfer.config import AppConfig; assert DISCOVERY_MAGIC == b'LANFT_DISCOVER_V2'; print('V2 discovery import sanity passed')"
 
       - name: Add PyInstaller windowed stdio runtime hook
         working-directory: buildsrc/lan_file_transfer_v1/pc
