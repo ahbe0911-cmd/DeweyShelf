@@ -1,0 +1,2 @@
+53697150885e00a8018038b443ad75496427494b2f33e6d22ac9f96a05cc862b  LANFileTransfer-Windows-V2-Setup.exe
+096a9f40ed5b1f3dbe1ebfa5048556a3ef4f1dee23b867545ff84f85cffb100e  LANFileTransfer-Android-V2.apk
