@@ -1,0 +1,52 @@
+name: Fix LAN SHARE V2.5 Final Pipeline
+
+on:
+  push:
+    branches: [build/lan-share-v24-fonts]
+    paths:
+      - '.github/workflows/fix-lan-share-v25-final-pipeline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/lan-share-v24-fonts
+
+      - name: Patch final workflow safely
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('.github/workflows/build-lan-share-v25-final.yml')
+          s = p.read_text(encoding='utf-8')
+
+          old_timeout = 'for($i=0;$i -lt 30;$i++){'
+          if old_timeout in s:
+              s = s.replace(old_timeout, 'for($i=0;$i -lt 120;$i++){', 1)
+          elif 'for($i=0;$i -lt 120;$i++){' not in s:
+              raise SystemExit('Windows startup timeout marker not found')
+
+          qr_line = '          python lan-build/v25-qr-pin/patch_qr_pin.py "$SRC"\n'
+          guard_line = '          python lan-build/v25-clean/patch_android_compile_fix.py\n'
+          if guard_line not in s:
+              if qr_line not in s:
+                  raise SystemExit('Android QR patch marker not found')
+              s = s.replace(qr_line, qr_line + guard_line, 1)
+
+          p.write_text(s, encoding='utf-8')
+          print('Final workflow patched: Android compile guard + 60s Windows startup budget')
+
+      - name: Commit patched final workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/build-lan-share-v25-final.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'ci: harden LAN SHARE V2.5 final build'
+          git push origin HEAD:build/lan-share-v24-fonts
