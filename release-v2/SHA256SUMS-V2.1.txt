@@ -1,0 +1,2 @@
+73931abe4bd78900454794fba99afff3b0d8aa4c4b8cf34c351de1a48d33ec18  LANShare-Windows-V2.1-Setup.exe
+8cb15bbeebaa01e9b6b524979cca250bbaba5e706a432817f3a954a01953b860  LANShare-Android-V2.1.apk
