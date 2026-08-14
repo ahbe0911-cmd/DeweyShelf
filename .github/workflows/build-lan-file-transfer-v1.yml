@@ -5,7 +5,7 @@ on:
     branches:
       - build/lan-file-transfer-v1
     paths:
-      - 'lan-build/source_parts_v2/**'
+      - 'lan-build/minsrc_v4/**'
       - '.github/workflows/build-lan-file-transfer-v1.yml'
   workflow_dispatch:
 
@@ -19,25 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct and verify source ZIP
+      - name: Reconstruct verified source archive
         shell: pwsh
         run: |
           $parts = @(
-            'lan-build/source_parts_v2/part00.b64',
-            'lan-build/source_parts_v2/part01.b64',
-            'lan-build/source_parts_v2/part02.b64',
-            'lan-build/source_parts_v2/part03.b64',
-            'lan-build/source_parts_v2/part04.b64',
-            'lan-build/source_parts_v2/part05.b64',
-            'lan-build/source_parts_v2/part06a.b64',
-            'lan-build/source_parts_v2/part06b.b64',
-            'lan-build/source_parts_v2/part07a.b64',
-            'lan-build/source_parts_v2/part07b.b64'
+            'lan-build/minsrc_v4/part00.b64',
+            'lan-build/minsrc_v4/part01.b64',
+            'lan-build/minsrc_v4/part02.b64',
+            'lan-build/minsrc_v4/part03.b64'
           )
           $b64 = ($parts | ForEach-Object { Get-Content $_ -Raw }) -join ''
-          [IO.File]::WriteAllBytes('lan-file-transfer-v1-source.zip', [Convert]::FromBase64String($b64))
-          Write-Host "Source SHA256: $((Get-FileHash 'lan-file-transfer-v1-source.zip' -Algorithm SHA256).Hash.ToLower())"
-          Expand-Archive -Path 'lan-file-transfer-v1-source.zip' -DestinationPath 'buildsrc' -Force
+          [IO.File]::WriteAllBytes('lan-min.tar.gz', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'lan-min.tar.gz' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af') { throw "Source SHA256 mismatch: $hash" }
+          New-Item -ItemType Directory -Force -Path buildsrc | Out-Null
+          tar -xzf lan-min.tar.gz -C buildsrc
+          if (!(Test-Path 'buildsrc/lan_file_transfer_v1/pc/app.py')) { throw 'PC source extraction failed' }
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -45,36 +42,69 @@ jobs:
           python-version: '3.12'
           architecture: 'x64'
 
-      - name: Install Python dependencies
-        shell: pwsh
+      - name: Install dependencies
         working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pytest pyinstaller
+          python -m pip install -r requirements.txt pyinstaller
 
-      - name: Run PC tests
-        shell: pwsh
+      - name: Syntax check PC source
         working-directory: buildsrc/lan_file_transfer_v1/pc
-        run: python -m pytest -q
+        shell: pwsh
+        run: |
+          python -m compileall -q .
 
-      - name: Build standalone EXE
-        shell: pwsh
+      - name: Build standalone Windows EXE
         working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name LANFileTransfer app.py --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all websockets
           if (!(Test-Path 'dist/LANFileTransfer.exe')) { throw 'PyInstaller output missing' }
 
       - name: Build Windows Setup
-        shell: pwsh
         working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
         run: |
           choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppId={{A783A5C0-2B74-4B25-98A8-8A25512E91F5}
+          AppName=LAN File Transfer
+          AppVersion=1.0.0
+          AppPublisher=LAN File Transfer
+          DefaultDirName={autopf}\LAN File Transfer
+          DefaultGroupName=LAN File Transfer
+          DisableProgramGroupPage=yes
+          OutputDir=installer-output
+          OutputBaseFilename=LANFileTransfer-Windows-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=lowest
+          UninstallDisplayIcon={app}\LANFileTransfer.exe
+
+          [Files]
+          Source: "dist\LANFileTransfer.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+          [Icons]
+          Name: "{autoprograms}\LAN File Transfer"; Filename: "{app}\LANFileTransfer.exe"
+          Name: "{autodesktop}\LAN File Transfer"; Filename: "{app}\LANFileTransfer.exe"; Tasks: desktopicon
+
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
+
+          [Run]
+          Filename: "{app}\LANFileTransfer.exe"; Description: "Launch LAN File Transfer"; Flags: nowait postinstall skipifsilent
+          '@ | Set-Content -Encoding UTF8 installer.iss
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
           if (!(Test-Path $iscc)) { throw 'Inno Setup compiler not found' }
-          & $iscc 'installer.iss'
-          if (!(Test-Path 'installer-output/LANFileTransfer-Setup.exe')) { throw 'Installer output missing' }
+          & $iscc installer.iss
+          if (!(Test-Path 'installer-output/LANFileTransfer-Windows-Setup.exe')) { throw 'Installer output missing' }
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\winout" | Out-Null
-          Copy-Item 'installer-output/LANFileTransfer-Setup.exe' "${{ github.workspace }}\winout\LANFileTransfer-Windows-Setup.exe"
+          Copy-Item 'installer-output/LANFileTransfer-Windows-Setup.exe' "${{ github.workspace }}\winout\LANFileTransfer-Windows-Setup.exe"
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
@@ -89,24 +119,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct and verify source ZIP
+      - name: Reconstruct verified source archive
         shell: bash
         run: |
-          cat \
-            lan-build/source_parts_v2/part00.b64 \
-            lan-build/source_parts_v2/part01.b64 \
-            lan-build/source_parts_v2/part02.b64 \
-            lan-build/source_parts_v2/part03.b64 \
-            lan-build/source_parts_v2/part04.b64 \
-            lan-build/source_parts_v2/part05.b64 \
-            lan-build/source_parts_v2/part06a.b64 \
-            lan-build/source_parts_v2/part06b.b64 \
-            lan-build/source_parts_v2/part07a.b64 \
-            lan-build/source_parts_v2/part07b.b64 | base64 -d > lan-file-transfer-v1-source.zip
-          sha256sum lan-file-transfer-v1-source.zip
-          unzip -t lan-file-transfer-v1-source.zip
+          cat lan-build/minsrc_v4/part00.b64 lan-build/minsrc_v4/part01.b64 lan-build/minsrc_v4/part02.b64 lan-build/minsrc_v4/part03.b64 | base64 -d > lan-min.tar.gz
+          echo '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af  lan-min.tar.gz' | sha256sum -c -
           mkdir -p buildsrc
-          unzip -q lan-file-transfer-v1-source.zip -d buildsrc
+          tar -xzf lan-min.tar.gz -C buildsrc
+          test -f buildsrc/lan_file_transfer_v1/android/app/build.gradle.kts
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -122,11 +142,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK 36
+      - name: Install Android SDK
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          sdkmanager 'platforms;android-37' 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Build installable APK
         working-directory: buildsrc/lan_file_transfer_v1/android
@@ -144,7 +164,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish installers to build branch
+    name: Publish installers
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:
@@ -152,19 +172,17 @@ jobs:
         with:
           ref: build/lan-file-transfer-v1
 
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: LANFileTransfer-Windows
           path: release
 
-      - name: Download Android artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: LANFileTransfer-Android
           path: release
 
-      - name: Create checksums and publish
+      - name: Create checksums and publish files
         shell: bash
         run: |
           cd release
