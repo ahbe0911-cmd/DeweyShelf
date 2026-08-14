@@ -33,6 +33,11 @@ public final class Prefs {
         e.apply();
     }
 
+    /** Backward-compatible helper for V1 paired installs. */
+    public static void updateServer(Context c, String server) {
+        c.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(SERVER, server).apply();
+    }
+
     public static String server(Context c) { return prefs(c).getString(SERVER, ""); }
     public static String deviceId(Context c) { return prefs(c).getString(DEVICE_ID, ""); }
     public static String token(Context c) { return prefs(c).getString(TOKEN, ""); }
