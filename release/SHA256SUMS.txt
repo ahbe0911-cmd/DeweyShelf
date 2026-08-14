@@ -1,0 +1,2 @@
+275a2fbcc266c10ea311eb829f22e3b5a770b268608196d1e0fa723d90d345d7  LANFileTransfer-Windows-Setup.exe
+124e2f1c6ecbe6c821e957872cfb6679d07512b4244acd28c47d253c40064d54  LANFileTransfer-Android.apk
