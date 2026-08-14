@@ -1,0 +1,56 @@
+name: HEIC Pro Converter - Source Bundle
+
+on:
+  push:
+    branches:
+      - 'agent/heic-pro-converter-build'
+    paths:
+      - '.github/workflows/heic-source-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-source:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Prepare clean source bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path source_bundle | Out-Null
+          Copy-Item -Path heic-pro-converter -Destination source_bundle\heic-pro-converter -Recurse -Force
+          New-Item -ItemType Directory -Force -Path source_bundle\.github\workflows | Out-Null
+          Copy-Item -Path .github\workflows\heic-pro-converter-windows.yml -Destination source_bundle\.github\workflows\heic-pro-converter-windows.yml -Force
+          "Branch: agent/heic-pro-converter-build`nCommit: $env:GITHUB_SHA`nTarget: Windows 10 x64" | Set-Content -Encoding UTF8 source_bundle\SOURCE_BUILD_INFO.txt
+          if (Test-Path source_bundle\heic-pro-converter\.venv) { Remove-Item source_bundle\heic-pro-converter\.venv -Recurse -Force }
+          if (Test-Path source_bundle\heic-pro-converter\build) { Remove-Item source_bundle\heic-pro-converter\build -Recurse -Force }
+          if (Test-Path source_bundle\heic-pro-converter\dist) { Remove-Item source_bundle\heic-pro-converter\dist -Recurse -Force }
+
+      - name: Verify source files
+        shell: pwsh
+        run: |
+          $required = @(
+            'source_bundle/heic-pro-converter/src/app.py',
+            'source_bundle/heic-pro-converter/src/converter.py',
+            'source_bundle/heic-pro-converter/requirements.txt',
+            'source_bundle/heic-pro-converter/build_win10_x64.bat',
+            'source_bundle/heic-pro-converter/run_dev.bat',
+            'source_bundle/heic-pro-converter/README_SOURCE_FA.md',
+            'source_bundle/.github/workflows/heic-pro-converter-windows.yml'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing source file: $file" }
+          }
+          Write-Host 'Source bundle verification OK.'
+
+      - name: Upload clean source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: HEIC-Pro-Converter-v6-Silver-Studio-Source-Windows10-x64
+          path: source_bundle/**
+          if-no-files-found: error
+          retention-days: 30
