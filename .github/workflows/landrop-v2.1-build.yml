@@ -1,0 +1,142 @@
+name: Build LAN Drop V2.1
+
+on:
+  push:
+    branches:
+      - landrop-v2.1-build
+    paths:
+      - 'landrop-build/source/**'
+      - '.github/workflows/landrop-v2.1-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild source ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat landrop-build/source/part-*.b64 | base64 -d > landrop-v2.1.zip
+          mkdir -p src
+          unzip -q landrop-v2.1.zip -d src
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Validate V2.1
+        working-directory: src
+        run: python tools/validate_v21.py
+
+      - name: Build installable debug APK
+        working-directory: src/android
+        run: gradle --no-daemon clean assembleDebug
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          mkdir -p out/android
+          cp src/android/app/build/outputs/apk/debug/app-debug.apk out/android/LAN-Drop-V2.1-Android.apk
+          sha256sum out/android/LAN-Drop-V2.1-Android.apk > out/android/SHA256SUMS.txt
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAN-Drop-V2.1-Android
+          path: out/android/*
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild source ZIP
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem "landrop-build/source/part-*.b64" | Sort-Object Name
+          $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ""
+          [IO.File]::WriteAllBytes("landrop-v2.1.zip", [Convert]::FromBase64String($b64))
+          New-Item -ItemType Directory -Force src | Out-Null
+          Expand-Archive -Path landrop-v2.1.zip -DestinationPath src -Force
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/pc/requirements.txt
+          pip install -r src/pc/dev-requirements.txt
+          pip install pyinstaller
+
+      - name: Test Windows core
+        shell: pwsh
+        working-directory: src/pc
+        run: |
+          python -m compileall -q .
+          pytest -q
+
+      - name: Build portable EXE
+        shell: pwsh
+        working-directory: src
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name LAN-Drop-Windows --paths pc pc/app.py
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        shell: pwsh
+        working-directory: src
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\LANDrop.iss'
+
+      - name: Prepare Windows artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out\windows | Out-Null
+          Copy-Item "src\dist\LAN-Drop-Windows.exe" "out\windows\LAN-Drop-Windows.exe"
+          Copy-Item "src\dist-installer\LAN-Drop-Windows-V2.1-Setup.exe" "out\windows\LAN-Drop-Windows-V2.1-Setup.exe"
+          Get-FileHash out\windows\LAN-Drop-Windows.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  LAN-Drop-Windows.exe" } |
+            Set-Content out\windows\SHA256SUMS.txt
+          Get-FileHash out\windows\LAN-Drop-Windows-V2.1-Setup.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  LAN-Drop-Windows-V2.1-Setup.exe" } |
+            Add-Content out\windows\SHA256SUMS.txt
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAN-Drop-V2.1-Windows
+          path: out/windows/*
+          if-no-files-found: error
+          retention-days: 14
