@@ -1,0 +1,29 @@
+name: Debug V2.5 Android Source
+on:
+  workflow_dispatch:
+  push:
+    branches: [build/lan-share-v24-fonts]
+    paths: ['.github/workflows/debug-v25-android-source.yml']
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct and print context
+        shell: bash
+        run: |
+          cat lan-build/minsrc_v4/part00.b64 lan-build/minsrc_v4/part01.b64 lan-build/minsrc_v4/part02.b64 lan-build/minsrc_v4/part03.b64|base64 -d > base.tar.gz
+          mkdir -p buildsrc && tar -xzf base.tar.gz -C buildsrc
+          cp -a lan-build/v2-overlay/. buildsrc/lan_file_transfer_v1/
+          cp -a lan-build/v22-overlay/. buildsrc/lan_file_transfer_v1/
+          python lan-build/v23-patch/patch_android.py
+          python lan-build/v25-clean/patch_style_fonts.py
+          python lan-build/v25-clean/patch_qr_compat.py
+          python lan-build/v25-qr-pin/patch_qr_pin.py buildsrc/lan_file_transfer_v1
+          F=buildsrc/lan_file_transfer_v1/android/app/src/main/java/ir/local/lantransfer/MainActivity.java
+          echo '--- CONSTANTS ---'
+          grep -n 'PAGE_' "$F" | head -40
+          echo '--- CASES ---'
+          grep -n 'case ' "$F" || true
+          echo '--- LINES 640-685 ---'
+          nl -ba "$F" | sed -n '640,685p'
