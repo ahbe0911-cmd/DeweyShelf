@@ -29,6 +29,8 @@ jobs:
           python lan-build/v25-qr-pin/patch_qr_pin.py "$SRC"
           python lan-build/v25-clean/patch_android_compile_fix.py
           sed -i 's/compileSdk = 37/compileSdk = 36/' "$SRC/android/app/build.gradle.kts"
+          echo '===== MAINACTIVITY 500-525 ====='
+          nl -ba "$SRC/android/app/src/main/java/ir/local/lantransfer/MainActivity.java" | sed -n '500,525p'
 
       - name: Embed verified fonts
         shell: bash
@@ -57,8 +59,8 @@ jobs:
           set +e
           gradle --no-daemon :app:compileDebugJavaWithJavac --stacktrace > "$GITHUB_WORKSPACE/gradle.log" 2>&1
           RC=$?
+          echo '===== ERROR CONTEXT 18-34 ====='
+          sed -n '18,34p' "$GITHUB_WORKSPACE/gradle.log"
           echo '===== JAVA / GRADLE ERROR LINES ====='
           grep -nE 'error:|FAILURE:|Execution failed|MainActivity.java|QrScannerActivity.java|AndroidManifest|build.gradle' "$GITHUB_WORKSPACE/gradle.log" | tail -120 || true
-          echo '===== LAST 120 LINES ====='
-          tail -120 "$GITHUB_WORKSPACE/gradle.log"
           exit $RC
