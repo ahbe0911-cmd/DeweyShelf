@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ctypes
 import os
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -10,18 +12,21 @@ from .connection_manager import ConnectionManager
 from .transfer_store import TransferStore
 from .utils import get_lan_ipv4s, human_bytes, human_eta
 
-NAVY = "#101936"
-NAVY_2 = "#172448"
-BLUE = "#526BF4"
-CORAL = "#FF5B65"
-MUTED = "#97A3C6"
+BLUE = "#1688F5"
+BLUE_DARK = "#0C73E3"
+BLUE_LIGHT = "#EAF4FF"
+BG = "#F4F6FA"
 WHITE = "#FFFFFF"
-CARD = "#1A2850"
-GREEN = "#4DD6A8"
+TEXT = "#202633"
+MUTED = "#7D8796"
+BORDER = "#E1E6EE"
+GREEN = "#22B981"
+RED = "#EE5253"
+SOFT = "#F8FAFD"
 
 
 class DesktopGui:
-    """Zapya-inspired (not cloned) Windows UI focused on one-tap LAN transfer."""
+    """Clean SHAREit-inspired Windows UI. Networking/transfer behavior is unchanged."""
 
     def __init__(self, root: tk.Tk, config: AppConfig, pin: str, store: TransferStore,
                  manager: ConnectionManager, device_name: str = "Windows PC"):
@@ -33,14 +38,33 @@ class DesktopGui:
         self.device_name = device_name
         self.current_dir = Path.home()
         self.device_map: dict[str, str] = {}
-        self.root.title("LAN File Transfer 2")
-        self.root.geometry("1080x720")
-        self.root.minsize(900, 620)
-        self.root.configure(bg=NAVY)
+
+        self.root.title("LAN SHARE")
+        self.root.geometry("1180x760")
+        self.root.minsize(980, 650)
+        self.root.configure(bg=BG)
+        self._set_window_identity()
         self._configure_styles()
         self._build()
         self._refresh_files()
         self._poll()
+
+    @staticmethod
+    def _resource_path(relative: str) -> str:
+        if hasattr(sys, "_MEIPASS"):
+            return str(Path(getattr(sys, "_MEIPASS")) / relative)
+        return str(Path(__file__).resolve().parents[1] / relative)
+
+    def _set_window_identity(self) -> None:
+        if os.name == "nt":
+            try:
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("LANShare.Transfer.2.1")
+            except Exception:
+                pass
+        try:
+            self.root.iconbitmap(self._resource_path("assets/lan_share.ico"))
+        except Exception:
+            pass
 
     def _configure_styles(self) -> None:
         style = ttk.Style(self.root)
@@ -48,133 +72,265 @@ class DesktopGui:
             style.theme_use("clam")
         except tk.TclError:
             pass
-        style.configure("Dark.Treeview", background=NAVY_2, fieldbackground=NAVY_2,
-                        foreground=WHITE, rowheight=28, borderwidth=0)
-        style.map("Dark.Treeview", background=[("selected", BLUE)])
-        style.configure("Dark.Treeview.Heading", background=CARD, foreground=WHITE,
-                        relief="flat", padding=6)
-        style.configure("Dark.TCombobox", fieldbackground=NAVY_2, background=NAVY_2,
-                        foreground=WHITE, arrowcolor=WHITE)
 
-    def _pill_button(self, parent, text: str, command, accent: bool = True, width: int = 16):
-        return tk.Button(parent, text=text, command=command, bd=0, relief="flat",
-                         bg=CORAL if accent else BLUE, fg=WHITE,
-                         activebackground="#ff737b" if accent else "#6d82f6",
-                         activeforeground=WHITE, font=("Segoe UI", 10, "bold"),
-                         cursor="hand2", padx=14, pady=9, width=width)
+        style.configure(
+            "Clean.Treeview",
+            background=WHITE,
+            fieldbackground=WHITE,
+            foreground=TEXT,
+            rowheight=34,
+            borderwidth=0,
+            font=("Segoe UI", 10),
+        )
+        style.map(
+            "Clean.Treeview",
+            background=[("selected", "#DCEEFF")],
+            foreground=[("selected", TEXT)],
+        )
+        style.configure(
+            "Clean.Treeview.Heading",
+            background="#F2F5F9",
+            foreground="#596579",
+            relief="flat",
+            padding=(8, 9),
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.configure(
+            "Clean.TCombobox",
+            fieldbackground=WHITE,
+            background=WHITE,
+            foreground=TEXT,
+            arrowcolor=BLUE,
+            padding=7,
+        )
+
+    def _button(self, parent, text: str, command, primary: bool = True, width: int = 14):
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bd=0,
+            relief="flat",
+            bg=BLUE if primary else WHITE,
+            fg=WHITE if primary else BLUE,
+            activebackground=BLUE_DARK if primary else BLUE_LIGHT,
+            activeforeground=WHITE if primary else BLUE,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2",
+            padx=14,
+            pady=9,
+            width=width,
+            highlightthickness=1 if not primary else 0,
+            highlightbackground=BORDER,
+        )
 
     def _build(self) -> None:
-        header = tk.Frame(self.root, bg=BLUE, height=64)
+        # Blue hero header similar to the supplied desktop reference.
+        header = tk.Frame(self.root, bg=BLUE, height=178)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
-        tk.Label(header, text="LAN FILE TRANSFER", bg=BLUE, fg=WHITE,
-                 font=("Segoe UI", 16, "bold")).pack(side=tk.LEFT, padx=20)
-        tk.Label(header, text=self.device_name, bg=BLUE, fg="#E8ECFF",
-                 font=("Segoe UI", 10)).pack(side=tk.RIGHT, padx=20)
 
-        body = tk.Frame(self.root, bg=NAVY)
-        body.pack(fill=tk.BOTH, expand=True, padx=18, pady=16)
+        top = tk.Frame(header, bg=BLUE)
+        top.pack(fill=tk.X, padx=28, pady=(20, 10))
 
-        left = tk.Frame(body, bg=NAVY, width=310)
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 14))
-        left.pack_propagate(False)
+        logo = tk.Canvas(top, width=46, height=46, bg=BLUE, highlightthickness=0)
+        logo.pack(side=tk.LEFT)
+        logo.create_oval(2, 2, 44, 44, outline=WHITE, width=2)
+        logo.create_rectangle(10, 13, 27, 27, outline=WHITE, width=2)
+        logo.create_rectangle(30, 20, 39, 35, outline=WHITE, width=2)
+        logo.create_line(24, 23, 31, 27, fill=WHITE, width=2, arrow=tk.LAST)
+        logo.create_line(31, 31, 24, 28, fill=WHITE, width=2, arrow=tk.LAST)
 
-        # Connection/radar card.
-        radar_card = tk.Frame(left, bg=CARD, highlightthickness=0)
-        radar_card.pack(fill=tk.X)
-        tk.Label(radar_card, text="اتصال سریع", bg=CARD, fg=WHITE,
-                 font=("Segoe UI", 14, "bold")).pack(pady=(16, 2))
-        tk.Label(radar_card, text="گوشی و کامپیوتر روی یک Wi‑Fi", bg=CARD, fg=MUTED,
-                 font=("Segoe UI", 9)).pack()
+        brand = tk.Frame(top, bg=BLUE)
+        brand.pack(side=tk.LEFT, padx=(10, 0))
+        tk.Label(brand, text="LAN SHARE", bg=BLUE, fg=WHITE,
+                 font=("Segoe UI", 19, "bold")).pack(anchor="w")
+        tk.Label(brand, text="Local Wi‑Fi File Transfer  •  v2.1",
+                 bg=BLUE, fg="#D8ECFF", font=("Segoe UI", 9)).pack(anchor="w")
 
-        self.radar = tk.Canvas(radar_card, width=180, height=180, bg=CARD, highlightthickness=0)
-        self.radar.pack(pady=4)
-        self.radar.create_oval(20, 20, 160, 160, outline=BLUE, width=3, tags="ring")
-        self.radar.create_oval(45, 45, 135, 135, fill=NAVY_2, outline="#6D80FF", width=2)
-        self.radar.create_text(90, 78, text="Wi‑Fi", fill=WHITE, font=("Segoe UI", 16, "bold"))
-        self.radar.create_text(90, 106, text="READY", fill=GREEN, font=("Segoe UI", 9, "bold"))
+        receive_btn = self._button(top, "پوشه دریافتی‌ها", self._open_receive_dir, False, 15)
+        receive_btn.pack(side=tk.RIGHT, padx=(10, 0))
+        receive_btn.configure(bg="#2A96F7", fg=WHITE, activebackground="#52A8F8",
+                              highlightthickness=0)
 
-        self.connection_state = tk.Label(radar_card, text="منتظر اتصال گوشی...", bg=CARD,
-                                         fg=MUTED, font=("Segoe UI", 10, "bold"))
-        self.connection_state.pack(pady=(0, 12))
+        identity = tk.Frame(header, bg=BLUE)
+        identity.pack(fill=tk.X, padx=28, pady=(4, 0))
 
-        info = tk.Frame(radar_card, bg=NAVY_2)
-        info.pack(fill=tk.X, padx=12, pady=(0, 12))
+        avatar = tk.Canvas(identity, width=58, height=58, bg=BLUE, highlightthickness=0)
+        avatar.pack(side=tk.LEFT)
+        avatar.create_oval(3, 3, 55, 55, fill="#EAF4FF", outline="#FFFFFF", width=2)
+        avatar.create_rectangle(17, 18, 41, 36, outline=BLUE, width=2)
+        avatar.create_rectangle(25, 37, 33, 41, fill=BLUE, outline=BLUE)
+        avatar.create_line(21, 42, 37, 42, fill=BLUE, width=2)
+
+        ident_text = tk.Frame(identity, bg=BLUE)
+        ident_text.pack(side=tk.LEFT, padx=(12, 0))
+        tk.Label(ident_text, text=self.device_name, bg=BLUE, fg=WHITE,
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w")
+
         ips = get_lan_ipv4s()
         ip_text = ips[0] if ips else "IP پیدا نشد"
-        tk.Label(info, text=f"IP  {ip_text}:{self.config.port}", bg=NAVY_2, fg=WHITE,
-                 font=("Consolas", 10, "bold")).pack(anchor="w", padx=12, pady=(10, 2))
-        tk.Label(info, text=f"PIN  {self.pin if self.config.pin_enabled else 'OFF'}",
-                 bg=NAVY_2, fg=CORAL, font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=12, pady=(0, 2))
-        tk.Label(info, text=f"Radar UDP  {self.config.discovery_port}", bg=NAVY_2, fg=MUTED,
-                 font=("Segoe UI", 8)).pack(anchor="w", padx=12, pady=(0, 10))
+        self.ip_label = tk.Label(
+            ident_text,
+            text=f"{ip_text}:{self.config.port}   •   Radar UDP {self.config.discovery_port}",
+            bg=BLUE, fg="#D8ECFF", font=("Consolas", 9)
+        )
+        self.ip_label.pack(anchor="w", pady=(2, 0))
 
-        device_card = tk.Frame(left, bg=CARD)
-        device_card.pack(fill=tk.X, pady=(12, 0))
-        tk.Label(device_card, text="دستگاه متصل", bg=CARD, fg=WHITE,
-                 font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=12, pady=(12, 5))
-        self.devices = ttk.Combobox(device_card, state="readonly", style="Dark.TCombobox")
-        self.devices.pack(fill=tk.X, padx=12, pady=(0, 12))
+        status_box = tk.Frame(identity, bg="#2A96F7")
+        status_box.pack(side=tk.RIGHT)
+        self.status_dot = tk.Canvas(status_box, width=18, height=18, bg="#2A96F7", highlightthickness=0)
+        self.status_dot.pack(side=tk.LEFT, padx=(12, 2), pady=10)
+        self.status_circle = self.status_dot.create_oval(5, 5, 13, 13, fill="#CFE7FF", outline="")
+        self.connection_state = tk.Label(
+            status_box, text="منتظر اتصال گوشی", bg="#2A96F7", fg=WHITE,
+            font=("Segoe UI", 10, "bold")
+        )
+        self.connection_state.pack(side=tk.LEFT, padx=(2, 14), pady=10)
 
-        self._pill_button(left, "ارسال فایل به گوشی", self._choose_and_send, True, 22).pack(fill=tk.X, pady=(12, 6))
-        self._pill_button(left, "پوشه فایل‌های دریافتی", self._open_receive_dir, False, 22).pack(fill=tk.X)
+        pin_box = tk.Frame(identity, bg="#2A96F7")
+        pin_box.pack(side=tk.RIGHT, padx=(0, 10))
+        tk.Label(pin_box, text="PIN", bg="#2A96F7", fg="#D8ECFF",
+                 font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT, padx=(12, 5), pady=10)
+        tk.Label(pin_box, text=self.pin if self.config.pin_enabled else "OFF",
+                 bg="#2A96F7", fg=WHITE, font=("Segoe UI", 13, "bold")).pack(
+                     side=tk.LEFT, padx=(0, 12), pady=8)
 
-        right = tk.Frame(body, bg=NAVY)
-        right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        body = tk.Frame(self.root, bg=BG)
+        body.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
 
-        top_cards = tk.Frame(right, bg=NAVY)
-        top_cards.pack(fill=tk.X)
-        self.stat_connected = self._stat_card(top_cards, "وضعیت", "آماده", GREEN)
-        self.stat_connected.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-        self.stat_transfers = self._stat_card(top_cards, "انتقال‌ها", "0", CORAL)
-        self.stat_transfers.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0))
+        left = tk.Frame(body, bg=WHITE, highlightthickness=1, highlightbackground=BORDER)
+        left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
-        notebook = ttk.Notebook(right)
-        notebook.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
+        right = tk.Frame(body, bg=WHITE, width=410, highlightthickness=1, highlightbackground=BORDER)
+        right.pack(side=tk.LEFT, fill=tk.BOTH, padx=(10, 0))
+        right.pack_propagate(False)
 
-        browser = tk.Frame(notebook, bg=NAVY_2)
-        transfers = tk.Frame(notebook, bg=NAVY_2)
-        notebook.add(browser, text="  فایل‌های PC  ")
-        notebook.add(transfers, text="  انتقال‌ها  ")
+        # Left: Send to phone + file browser.
+        left_header = tk.Frame(left, bg=WHITE)
+        left_header.pack(fill=tk.X, padx=18, pady=(16, 10))
+        tk.Label(left_header, text="ارسال به گوشی", bg=WHITE, fg=TEXT,
+                 font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT)
 
-        browser_top = tk.Frame(browser, bg=NAVY_2)
-        browser_top.pack(fill=tk.X, padx=10, pady=10)
+        self.devices = ttk.Combobox(left_header, state="readonly", style="Clean.TCombobox", width=28)
+        self.devices.pack(side=tk.RIGHT)
+
+        shortcuts = tk.Frame(left, bg=WHITE)
+        shortcuts.pack(fill=tk.X, padx=18, pady=(2, 12))
+        self._shortcut(shortcuts, "▧", "انتخاب فایل", "یک یا چند فایل", self._choose_and_send).pack(
+            side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        self._shortcut(shortcuts, "▣", "فایل‌های PC", "مرور پوشه‌ها", lambda: None).pack(
+            side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        self._shortcut(shortcuts, "⇩", "دریافتی‌ها", "پوشه ذخیره", self._open_receive_dir).pack(
+            side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+
+        drop = tk.Canvas(left, height=104, bg="#F7FBFF", highlightthickness=0, cursor="hand2")
+        drop.pack(fill=tk.X, padx=18, pady=(0, 14))
+        drop.bind("<Button-1>", lambda _e: self._choose_and_send())
+        drop.bind("<Configure>", self._draw_select_area)
+
+        browser_top = tk.Frame(left, bg=WHITE)
+        browser_top.pack(fill=tk.X, padx=18, pady=(0, 10))
         self.path_var = tk.StringVar(value=str(self.current_dir))
-        self._pill_button(browser_top, "بالا", self._go_up, False, 6).pack(side=tk.LEFT)
-        path_entry = tk.Entry(browser_top, textvariable=self.path_var, bd=0, bg=CARD, fg=WHITE,
-                              insertbackground=WHITE, font=("Segoe UI", 10))
+        self._button(browser_top, "↑", self._go_up, False, 3).pack(side=tk.LEFT)
+        path_entry = tk.Entry(
+            browser_top, textvariable=self.path_var, bd=0, bg=SOFT, fg=TEXT,
+            insertbackground=TEXT, font=("Segoe UI", 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=BLUE
+        )
         path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8, ipady=9)
-        self._pill_button(browser_top, "رفتن", self._go_path, False, 6).pack(side=tk.LEFT)
-        self._pill_button(browser_top, "ارسال انتخاب‌شده", self._send_selected_tree_files, True, 15).pack(side=tk.LEFT, padx=(8, 0))
+        self._button(browser_top, "رفتن", self._go_path, False, 6).pack(side=tk.LEFT)
+        self._button(browser_top, "ارسال انتخاب‌شده", self._send_selected_tree_files, True, 14).pack(
+            side=tk.LEFT, padx=(8, 0))
 
-        self.file_tree = ttk.Treeview(browser, columns=("type", "size"), show="tree headings",
-                                      selectmode="extended", style="Dark.Treeview")
+        self.file_tree = ttk.Treeview(
+            left, columns=("type", "size"), show="tree headings",
+            selectmode="extended", style="Clean.Treeview"
+        )
         self.file_tree.heading("#0", text="نام")
         self.file_tree.heading("type", text="نوع")
         self.file_tree.heading("size", text="حجم")
-        self.file_tree.column("#0", width=520)
+        self.file_tree.column("#0", width=430)
         self.file_tree.column("type", width=100, anchor=tk.CENTER)
-        self.file_tree.column("size", width=120, anchor=tk.E)
-        self.file_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        self.file_tree.column("size", width=110, anchor=tk.E)
+        self.file_tree.pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 18))
         self.file_tree.bind("<Double-1>", self._tree_double_click)
 
+        # Right: transfer history.
+        history_header = tk.Frame(right, bg=WHITE)
+        history_header.pack(fill=tk.X, padx=18, pady=(18, 12))
+        tk.Label(history_header, text="History", bg=WHITE, fg=TEXT,
+                 font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT)
+        self.transfer_count_label = tk.Label(
+            history_header, text="0 انتقال", bg=BLUE_LIGHT, fg=BLUE,
+            font=("Segoe UI", 9, "bold"), padx=10, pady=5
+        )
+        self.transfer_count_label.pack(side=tk.RIGHT)
+
+        tk.Frame(right, bg=BORDER, height=1).pack(fill=tk.X, padx=18)
+
         cols = ("direction", "file", "progress", "speed", "eta", "status")
-        self.transfer_tree = ttk.Treeview(transfers, columns=cols, show="headings", style="Dark.Treeview")
-        labels = {"direction": "جهت", "file": "فایل", "progress": "پیشرفت",
-                  "speed": "سرعت", "eta": "زمان باقی‌مانده", "status": "وضعیت"}
-        widths = {"direction": 115, "file": 310, "progress": 100, "speed": 110, "eta": 120, "status": 130}
+        self.transfer_tree = ttk.Treeview(
+            right, columns=cols, show="headings", style="Clean.Treeview"
+        )
+        labels = {
+            "direction": "جهت", "file": "فایل", "progress": "٪",
+            "speed": "سرعت", "eta": "ETA", "status": "وضعیت"
+        }
+        widths = {
+            "direction": 90, "file": 170, "progress": 62,
+            "speed": 86, "eta": 70, "status": 90
+        }
         for c in cols:
             self.transfer_tree.heading(c, text=labels[c])
-            self.transfer_tree.column(c, width=widths[c], anchor=tk.CENTER if c != "file" else tk.W)
-        self.transfer_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            self.transfer_tree.column(
+                c, width=widths[c],
+                anchor=tk.W if c == "file" else tk.CENTER,
+                stretch=(c == "file")
+            )
+        self.transfer_tree.pack(fill=tk.BOTH, expand=True, padx=18, pady=14)
 
-    def _stat_card(self, parent, title: str, value: str, value_color: str):
-        frame = tk.Frame(parent, bg=CARD)
-        tk.Label(frame, text=title, bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(anchor="w", padx=14, pady=(10, 2))
-        label = tk.Label(frame, text=value, bg=CARD, fg=value_color, font=("Segoe UI", 16, "bold"))
-        label.pack(anchor="w", padx=14, pady=(0, 10))
-        frame.value_label = label  # type: ignore[attr-defined]
-        return frame
+        footer = tk.Frame(right, bg="#F8FAFD")
+        footer.pack(fill=tk.X, side=tk.BOTTOM)
+        tk.Label(
+            footer,
+            text="فایل‌ها مستقیم داخل شبکه Wi‑Fi منتقل می‌شوند.",
+            bg="#F8FAFD", fg=MUTED, font=("Segoe UI", 8)
+        ).pack(pady=10)
+
+    def _shortcut(self, parent, symbol: str, title: str, subtitle: str, command):
+        box = tk.Frame(parent, bg=SOFT, highlightthickness=1, highlightbackground=BORDER, cursor="hand2")
+        for widget in (box,):
+            widget.bind("<Button-1>", lambda _e: command())
+
+        icon = tk.Label(box, text=symbol, bg=SOFT, fg=BLUE, font=("Segoe UI Symbol", 22, "bold"))
+        icon.pack(pady=(12, 2))
+        icon.bind("<Button-1>", lambda _e: command())
+
+        title_label = tk.Label(box, text=title, bg=SOFT, fg=TEXT, font=("Segoe UI", 10, "bold"))
+        title_label.pack()
+        title_label.bind("<Button-1>", lambda _e: command())
+
+        sub_label = tk.Label(box, text=subtitle, bg=SOFT, fg=MUTED, font=("Segoe UI", 8))
+        sub_label.pack(pady=(2, 10))
+        sub_label.bind("<Button-1>", lambda _e: command())
+        return box
+
+    def _draw_select_area(self, event) -> None:
+        canvas = event.widget
+        canvas.delete("all")
+        w, h = max(event.width, 20), max(event.height, 20)
+        canvas.create_rectangle(5, 5, w - 5, h - 5, outline="#A8CFF5", width=2, dash=(5, 4))
+        canvas.create_text(
+            w // 2, h // 2 - 10,
+            text="＋  برای انتخاب و ارسال فایل کلیک کنید",
+            fill=BLUE, font=("Segoe UI", 11, "bold")
+        )
+        canvas.create_text(
+            w // 2, h // 2 + 18,
+            text="ارسال چند فایل همزمان پشتیبانی می‌شود",
+            fill=MUTED, font=("Segoe UI", 8)
+        )
 
     def _selected_device_id(self) -> str | None:
         display = self.devices.get()
@@ -186,7 +342,7 @@ class DesktopGui:
     def _choose_and_send(self) -> None:
         device_id = self._selected_device_id()
         if not device_id:
-            messagebox.showwarning("گوشی متصل نیست", "ابتدا در اپ اندروید دکمه اتصال را بزنید.")
+            messagebox.showwarning("گوشی متصل نیست", "ابتدا در اپ اندروید به این کامپیوتر متصل شوید.")
             return
         files = filedialog.askopenfilenames(title="انتخاب یک یا چند فایل")
         self._queue_paths(device_id, [Path(p) for p in files])
@@ -273,16 +429,14 @@ class DesktopGui:
                 self.devices.set("")
 
         if connected:
-            self.connection_state.config(text=f"متصل: {connected[0][1]}", fg=GREEN)
-            self.stat_connected.value_label.config(text="متصل", fg=GREEN)  # type: ignore[attr-defined]
-            self.radar.itemconfig("ring", outline=GREEN)
+            self.connection_state.config(text=f"متصل به {connected[0][1]}")
+            self.status_dot.itemconfig(self.status_circle, fill=GREEN)
         else:
-            self.connection_state.config(text="منتظر اتصال گوشی...", fg=MUTED)
-            self.stat_connected.value_label.config(text="آماده", fg=MUTED)  # type: ignore[attr-defined]
-            self.radar.itemconfig("ring", outline=BLUE)
+            self.connection_state.config(text="منتظر اتصال گوشی")
+            self.status_dot.itemconfig(self.status_circle, fill="#CFE7FF")
 
         records = self.store.list()
-        self.stat_transfers.value_label.config(text=str(len(records)))  # type: ignore[attr-defined]
+        self.transfer_count_label.config(text=f"{len(records)} انتقال")
         present = set()
         for rec in records:
             iid = rec.id
@@ -296,6 +450,7 @@ class DesktopGui:
                 self.transfer_tree.item(iid, values=values)
             else:
                 self.transfer_tree.insert("", 0, iid=iid, values=values)
+
         for iid in self.transfer_tree.get_children():
             if iid not in present:
                 self.transfer_tree.delete(iid)

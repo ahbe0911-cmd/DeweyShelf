@@ -12,8 +12,8 @@ android {
         // target 36 deliberately keeps LAN access under INTERNET permission.
         // If you raise targetSdk to 37, also request ACCESS_LOCAL_NETWORK at runtime.
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "2.1.0"
     }
 
     compileOptions {

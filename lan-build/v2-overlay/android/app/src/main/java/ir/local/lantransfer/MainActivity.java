@@ -33,12 +33,15 @@ import java.util.Map;
 /** Zapya-inspired connection-first UI (original branding/assets are not copied). */
 public class MainActivity extends Activity {
     private static final int PICK_FILES = 100;
-    private static final int NAVY = Color.rgb(16, 25, 54);
-    private static final int CARD = Color.rgb(26, 40, 80);
-    private static final int BLUE = Color.rgb(82, 107, 244);
-    private static final int CORAL = Color.rgb(255, 91, 101);
-    private static final int MUTED = Color.rgb(151, 163, 198);
-    private static final int GREEN = Color.rgb(77, 214, 168);
+    private static final int BLUE = Color.rgb(30, 136, 245);
+    private static final int BLUE_DARK = Color.rgb(17, 118, 232);
+    private static final int BLUE_SOFT = Color.rgb(231, 242, 255);
+    private static final int BG = Color.rgb(244, 247, 251);
+    private static final int TEXT = Color.rgb(30, 38, 52);
+    private static final int MUTED = Color.rgb(119, 132, 151);
+    private static final int BORDER = Color.rgb(225, 231, 239);
+    private static final int GREEN = Color.rgb(38, 185, 129);
+    private static final int RED = Color.rgb(238, 82, 83);
 
     private EditText serverField;
     private EditText pinField;
@@ -69,8 +72,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(NAVY);
-        getWindow().setNavigationBarColor(NAVY);
+        getWindow().setStatusBarColor(BLUE_DARK);
+        getWindow().setNavigationBarColor(Color.WHITE);
         LanNetwork.bindProcessToWifi(this);
         setContentView(buildUi());
         requestRuntimePermissions();
@@ -88,106 +91,165 @@ public class MainActivity extends Activity {
     private View buildUi() {
         ScrollView outer = new ScrollView(this);
         outer.setFillViewport(true);
-        outer.setBackgroundColor(NAVY);
+        outer.setBackgroundColor(BG);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(18), dp(18), dp(24));
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        root.setBackgroundColor(NAVY);
+        root.setBackgroundColor(BG);
         outer.addView(root, matchWrap());
 
+        // SHAREit-like blue hero area, with original LAN SHARE branding.
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(dp(20), dp(18), dp(20), dp(26));
+        hero.setBackground(headerGradient());
+        root.addView(hero, matchWrap());
+
+        LinearLayout brandRow = new LinearLayout(this);
+        brandRow.setOrientation(LinearLayout.HORIZONTAL);
+        brandRow.setGravity(Gravity.CENTER_VERTICAL);
+        brandRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        hero.addView(brandRow, matchWrap());
+
+        TextView mark = label("↔", 24, Color.WHITE, true);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(circleDrawable(Color.argb(48, 255, 255, 255), Color.argb(100, 255, 255, 255), dp(1)));
+        LinearLayout.LayoutParams markLp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        markLp.setMargins(0, 0, dp(10), 0);
+        brandRow.addView(mark, markLp);
+
+        LinearLayout brandTexts = new LinearLayout(this);
+        brandTexts.setOrientation(LinearLayout.VERTICAL);
         TextView brand = label("LAN SHARE", 24, Color.WHITE, true);
-        brand.setGravity(Gravity.CENTER);
-        root.addView(brand, matchWrap());
-        TextView subtitle = label("انتقال سریع فایل در شبکه محلی", 12, MUTED, false);
-        subtitle.setGravity(Gravity.CENTER);
-        subtitle.setPadding(0, dp(4), 0, dp(16));
-        root.addView(subtitle, matchWrap());
+        TextView subtitle = label("انتقال سریع فایل روی Wi‑Fi محلی", 11, Color.argb(225,255,255,255), false);
+        brandTexts.addView(brand, matchWrap());
+        brandTexts.addView(subtitle, matchWrap());
+        brandRow.addView(brandTexts, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView secure = label("LAN", 10, BLUE_DARK, true);
+        secure.setGravity(Gravity.CENTER);
+        secure.setBackground(roundRect(Color.WHITE, dp(15)));
+        brandRow.addView(secure, new LinearLayout.LayoutParams(dp(54), dp(32)));
+
+        TextView heroTip = label("گوشی و کامپیوتر فقط باید به یک Wi‑Fi وصل باشند؛ اینترنت لازم نیست.", 11,
+                Color.argb(230,255,255,255), false);
+        heroTip.setGravity(Gravity.CENTER);
+        heroTip.setPadding(0, dp(18), 0, dp(12));
+        hero.addView(heroTip, matchWrap());
+
+        Button send = outlineButton("➤   ارسال فایل");
+        send.setOnClickListener(v -> pickFiles());
+        hero.addView(send, fixedHeightWithBottom(56, 10));
+
+        Button receive = outlineButton("⇩   فایل‌های دریافتی");
+        receive.setOnClickListener(v -> refreshReceivedList());
+        hero.addView(receive, fixedHeightWithBottom(56, 0));
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14), dp(14), dp(14), dp(24));
+        root.addView(content, matchWrap());
 
         LinearLayout connectCard = card();
-        root.addView(connectCard, matchWrapWithBottom(14));
-        TextView title = label("اتصال به کامپیوتر", 18, Color.WHITE, true);
+        connectCard.setPadding(dp(16), dp(16), dp(16), dp(16));
+        content.addView(connectCard, matchWrapWithBottom(12));
+
+        TextView title = label("اتصال به کامپیوتر", 18, TEXT, true);
         title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(16), 0, dp(4));
         connectCard.addView(title, matchWrap());
-        TextView tip = label("گوشی و PC روی یک Wi‑Fi باشند؛ اینترنت لازم نیست", 10, MUTED, false);
+
+        TextView tip = label("Radar کامپیوتر را در شبکه پیدا می‌کند", 10, MUTED, false);
         tip.setGravity(Gravity.CENTER);
+        tip.setPadding(0, dp(4), 0, dp(12));
         connectCard.addView(tip, matchWrap());
 
-        TextView radar = label("◎\nRADAR", 18, Color.WHITE, true);
+        TextView radar = label("◎\nRADAR", 16, Color.WHITE, true);
         radar.setGravity(Gravity.CENTER);
-        radar.setBackground(circleDrawable(BLUE, Color.rgb(110, 130, 255), dp(3)));
+        radar.setBackground(circleDrawable(BLUE, Color.rgb(115, 181, 250), dp(4)));
         radar.setOnClickListener(v -> discoverPc(false));
-        LinearLayout.LayoutParams radarLp = new LinearLayout.LayoutParams(dp(170), dp(170));
+        radar.setElevation(dp(3));
+        LinearLayout.LayoutParams radarLp = new LinearLayout.LayoutParams(dp(136), dp(136));
         radarLp.gravity = Gravity.CENTER_HORIZONTAL;
-        radarLp.setMargins(0, dp(14), 0, dp(10));
+        radarLp.setMargins(0, dp(2), 0, dp(12));
         connectCard.addView(radar, radarLp);
 
-        pcText = label("هنوز کامپیوتری انتخاب نشده", 11, Color.WHITE, true);
+        pcText = label("هنوز کامپیوتری انتخاب نشده", 12, TEXT, true);
         pcText.setGravity(Gravity.CENTER);
         connectCard.addView(pcText, matchWrap());
+
         stateText = label("آماده", 11, MUTED, true);
         stateText.setGravity(Gravity.CENTER);
-        stateText.setPadding(0, dp(5), 0, dp(14));
+        stateText.setPadding(0, dp(5), 0, dp(12));
         connectCard.addView(stateText, matchWrap());
 
-        LinearLayout pairCard = card();
-        pairCard.setPadding(dp(12), dp(12), dp(12), dp(12));
-        root.addView(pairCard, matchWrapWithBottom(14));
         pinField = edit("PIN شش‌رقمی روی کامپیوتر");
         pinField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        pairCard.addView(pinField, matchWrapWithBottom(8));
-        Button connect = button("اتصال / Pair", CORAL);
+        connectCard.addView(pinField, fixedHeightWithBottom(52, 9));
+
+        Button connect = button("اتصال / Pair", BLUE);
         connect.setOnClickListener(v -> pairAndConnect());
-        pairCard.addView(connect, matchWrapWithBottom(10));
+        connectCard.addView(connect, fixedHeightWithBottom(52, 12));
 
-        TextView manualTitle = label("اتصال دستی (در صورت نیاز)", 10, MUTED, false);
-        pairCard.addView(manualTitle, matchWrap());
-        serverField = edit("مثال: 192.168.1.10:8765");
-        pairCard.addView(serverField, matchWrap());
+        TextView manualTitle = label("اتصال دستی، فقط اگر Radar پیدا نکرد", 10, MUTED, false);
+        manualTitle.setPadding(dp(2), 0, dp(2), dp(5));
+        connectCard.addView(manualTitle, matchWrap());
 
-        LinearLayout actionRow = new LinearLayout(this);
-        actionRow.setOrientation(LinearLayout.HORIZONTAL);
-        actionRow.setGravity(Gravity.CENTER);
-        root.addView(actionRow, matchWrapWithBottom(14));
+        serverField = edit("192.168.1.10:8765");
+        connectCard.addView(serverField, fixedHeightWithBottom(52, 0));
 
-        Button send = button("ارسال فایل", CORAL);
-        send.setOnClickListener(v -> pickFiles());
-        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(58), 1);
-        half.setMargins(dp(4), 0, dp(4), 0);
-        actionRow.addView(send, half);
+        LinearLayout activityCard = card();
+        activityCard.setPadding(dp(14), dp(14), dp(14), dp(14));
+        content.addView(activityCard, matchWrapWithBottom(12));
 
-        Button received = button("دریافتی‌ها", BLUE);
-        received.setOnClickListener(v -> refreshReceivedList());
-        actionRow.addView(received, half);
+        LinearLayout activityHeader = new LinearLayout(this);
+        activityHeader.setOrientation(LinearLayout.HORIZONTAL);
+        activityHeader.setGravity(Gravity.CENTER_VERTICAL);
+        activityCard.addView(activityHeader, matchWrap());
 
-        receivedText = label("فایل‌های دریافتی: Downloads/FileTransfer", 10, MUTED, false);
-        receivedText.setPadding(dp(10), dp(10), dp(10), dp(10));
-        receivedText.setBackground(roundRect(Color.rgb(23, 36, 72), dp(12)));
-        root.addView(receivedText, matchWrapWithBottom(12));
+        TextView transfersTitle = label("انتقال‌ها", 17, TEXT, true);
+        activityHeader.addView(transfersTitle, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView storageBadge = label("Downloads/FileTransfer", 9, BLUE, true);
+        storageBadge.setGravity(Gravity.CENTER);
+        storageBadge.setPadding(dp(10), dp(6), dp(10), dp(6));
+        storageBadge.setBackground(roundRect(BLUE_SOFT, dp(14)));
+        activityHeader.addView(storageBadge, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        receivedText = label("هنوز فایلی دریافت نشده است.", 10, MUTED, false);
+        receivedText.setPadding(dp(12), dp(11), dp(12), dp(11));
+        receivedText.setBackground(roundRect(Color.rgb(248, 250, 253), dp(12)));
+        LinearLayout.LayoutParams receivedLp = matchWrapWithBottom(10);
+        receivedLp.setMargins(0, dp(10), 0, dp(10));
+        activityCard.addView(receivedText, receivedLp);
+
+        transferContainer = new LinearLayout(this);
+        transferContainer.setOrientation(LinearLayout.VERTICAL);
+        activityCard.addView(transferContainer, matchWrap());
 
         LinearLayout tools = new LinearLayout(this);
         tools.setOrientation(LinearLayout.HORIZONTAL);
+        tools.setGravity(Gravity.CENTER);
+        content.addView(tools, matchWrap());
+
         Button forget = smallButton("فراموش کردن اتصال");
         forget.setOnClickListener(v -> {
             Prefs.clearPair(this);
+            stateText.setTextColor(MUTED);
             stateText.setText("اتصال ذخیره‌شده پاک شد");
             pcText.setText("هنوز کامپیوتری انتخاب نشده");
         });
-        tools.addView(forget, new LinearLayout.LayoutParams(0, dp(44), 1));
+        LinearLayout.LayoutParams toolLp1 = new LinearLayout.LayoutParams(0, dp(46), 1);
+        toolLp1.setMargins(dp(4), 0, dp(4), 0);
+        tools.addView(forget, toolLp1);
+
         Button settings = smallButton("تنظیمات برنامه");
         settings.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.parse("package:" + getPackageName()))));
-        tools.addView(settings, new LinearLayout.LayoutParams(0, dp(44), 1));
-        root.addView(tools, matchWrapWithBottom(14));
-
-        TextView transfersTitle = label("انتقال‌ها", 16, Color.WHITE, true);
-        transfersTitle.setPadding(0, dp(4), 0, dp(8));
-        root.addView(transfersTitle, matchWrap());
-        transferContainer = new LinearLayout(this);
-        transferContainer.setOrientation(LinearLayout.VERTICAL);
-        root.addView(transferContainer, matchWrap());
+        LinearLayout.LayoutParams toolLp2 = new LinearLayout.LayoutParams(0, dp(46), 1);
+        toolLp2.setMargins(dp(4), 0, dp(4), 0);
+        tools.addView(settings, toolLp2);
 
         return outer;
     }
@@ -204,7 +266,7 @@ public class MainActivity extends Activity {
                     pcText.setText("پیدا شد: " + result.deviceName + "  •  " + result.baseUrl.replace("http://", ""));
                     stateText.setTextColor(GREEN);
                     if (Prefs.hasPair(MainActivity.this) && autoConnect) {
-                        Prefs.updateServer(MainActivity.this, result.baseUrl);
+                        Prefs.updateDiscovery(MainActivity.this, result.baseUrl, result.instanceId, result.deviceName);
                         stateText.setText("پیدا شد؛ در حال اتصال خودکار...");
                         startTransferService(TransferService.ACTION_CONNECT, null);
                     } else {
@@ -216,7 +278,7 @@ public class MainActivity extends Activity {
             @Override
             public void onNotFound(String message) {
                 runOnUiThread(() -> {
-                    stateText.setTextColor(CORAL);
+                    stateText.setTextColor(RED);
                     stateText.setText(message);
                 });
             }
@@ -248,7 +310,7 @@ public class MainActivity extends Activity {
                 startTransferService(TransferService.ACTION_CONNECT, null);
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    stateText.setTextColor(CORAL);
+                    stateText.setTextColor(RED);
                     stateText.setText("Pair ناموفق: " + readableNetworkError(e));
                 });
             }
@@ -324,11 +386,11 @@ public class MainActivity extends Activity {
             root.setPadding(dp(12), dp(10), dp(12), dp(10));
             LinearLayout.LayoutParams lp = matchWrapWithBottom(8);
             root.setLayoutParams(lp);
-            title = label(name, 11, Color.WHITE, true);
+            title = label(name, 11, TEXT, true);
             root.addView(title, matchWrap());
             progress = new ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
             progress.setMax(1000);
-            progress.setProgressTintList(android.content.res.ColorStateList.valueOf(CORAL));
+            progress.setProgressTintList(android.content.res.ColorStateList.valueOf(BLUE));
             root.addView(progress, matchWrap());
             meta = label("", 9, MUTED, false);
             root.addView(meta, matchWrap());
@@ -378,58 +440,111 @@ public class MainActivity extends Activity {
     private LinearLayout card() {
         LinearLayout v = new LinearLayout(this);
         v.setOrientation(LinearLayout.VERTICAL);
-        v.setBackground(roundRect(CARD, dp(18)));
+        v.setBackground(roundRect(Color.WHITE, dp(20)));
+        v.setElevation(dp(2));
         return v;
     }
 
     private TextView label(String text, int sp, int color, boolean bold) {
         TextView v = new TextView(this);
-        v.setText(text); v.setTextSize(sp); v.setTextColor(color);
+        v.setText(text);
+        v.setTextSize(sp);
+        v.setTextColor(color);
+        v.setFontFeatureSettings("kern");
         if (bold) v.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return v;
     }
 
     private EditText edit(String hint) {
         EditText e = new EditText(this);
-        e.setHint(hint); e.setHintTextColor(MUTED); e.setTextColor(Color.WHITE);
-        e.setSingleLine(true); e.setPadding(dp(12), 0, dp(12), 0);
-        e.setBackground(roundRect(Color.rgb(23, 36, 72), dp(12)));
+        e.setHint(hint);
+        e.setHintTextColor(Color.rgb(155, 166, 181));
+        e.setTextColor(TEXT);
+        e.setTextSize(12);
+        e.setSingleLine(true);
+        e.setPadding(dp(13), 0, dp(13), 0);
+        GradientDrawable bg = roundRect(Color.rgb(248, 250, 253), dp(13));
+        bg.setStroke(dp(1), BORDER);
+        e.setBackground(bg);
         e.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         return e;
     }
 
     private Button button(String text, int color) {
         Button b = new Button(this);
-        b.setText(text); b.setTextColor(Color.WHITE); b.setTextSize(12);
-        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD); b.setAllCaps(false);
-        b.setBackground(roundRect(color, dp(16)));
+        b.setText(text);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(12);
+        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        b.setAllCaps(false);
+        b.setPadding(dp(12), 0, dp(12), 0);
+        b.setBackground(roundRect(color, dp(27)));
+        b.setElevation(0);
+        return b;
+    }
+
+    private Button outlineButton(String text) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(14);
+        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        b.setAllCaps(false);
+        b.setPadding(dp(12), 0, dp(12), 0);
+        GradientDrawable bg = roundRect(Color.argb(18, 255, 255, 255), dp(28));
+        bg.setStroke(dp(2), Color.argb(225, 255, 255, 255));
+        b.setBackground(bg);
+        b.setElevation(0);
         return b;
     }
 
     private Button smallButton(String text) {
-        Button b = button(text, Color.rgb(23, 36, 72));
+        Button b = button(text, Color.WHITE);
+        b.setTextColor(BLUE);
         b.setTextSize(10);
+        GradientDrawable bg = roundRect(Color.WHITE, dp(23));
+        bg.setStroke(dp(1), BORDER);
+        b.setBackground(bg);
         return b;
     }
 
     private GradientDrawable roundRect(int color, int radius) {
         GradientDrawable d = new GradientDrawable();
-        d.setColor(color); d.setCornerRadius(radius);
+        d.setColor(color);
+        d.setCornerRadius(radius);
+        return d;
+    }
+
+    private GradientDrawable headerGradient() {
+        GradientDrawable d = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.rgb(34, 146, 255), Color.rgb(16, 119, 235)});
+        d.setGradientType(GradientDrawable.LINEAR_GRADIENT);
         return d;
     }
 
     private GradientDrawable circleDrawable(int fill, int stroke, int strokeWidth) {
         GradientDrawable d = new GradientDrawable();
-        d.setShape(GradientDrawable.OVAL); d.setColor(fill); d.setStroke(strokeWidth, stroke);
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(fill);
+        d.setStroke(strokeWidth, stroke);
         return d;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        return new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private LinearLayout.LayoutParams matchWrapWithBottom(int bottomDp) {
         LinearLayout.LayoutParams lp = matchWrap();
+        lp.setMargins(0, 0, 0, dp(bottomDp));
+        return lp;
+    }
+
+    private LinearLayout.LayoutParams fixedHeightWithBottom(int heightDp, int bottomDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp));
         lp.setMargins(0, 0, 0, dp(bottomDp));
         return lp;
     }
