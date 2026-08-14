@@ -1,0 +1,253 @@
+name: Build LAN SHARE V2.5 Clean
+
+on:
+  push:
+    branches: [build/lan-share-v24-fonts]
+    paths:
+      - 'lan-build/v25-clean/**'
+      - 'lan-build/v25-qr-pin/**'
+      - '.github/workflows/build-lan-share-v25-clean.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows V2.5 Clean
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Reconstruct source and apply clean V2.5 patches
+        shell: pwsh
+        run: |
+          $parts=@('lan-build/minsrc_v4/part00.b64','lan-build/minsrc_v4/part01.b64','lan-build/minsrc_v4/part02.b64','lan-build/minsrc_v4/part03.b64')
+          $b64=($parts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('lan-min.tar.gz',[Convert]::FromBase64String($b64))
+          $hash=(Get-FileHash lan-min.tar.gz -Algorithm SHA256).Hash.ToLower()
+          if($hash -ne '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af'){throw "Source SHA256 mismatch: $hash"}
+          New-Item -ItemType Directory -Force buildsrc|Out-Null
+          tar -xzf lan-min.tar.gz -C buildsrc
+          Copy-Item 'lan-build\v2-overlay\*' 'buildsrc\lan_file_transfer_v1' -Recurse -Force
+          Copy-Item 'lan-build\v22-overlay\*' 'buildsrc\lan_file_transfer_v1' -Recurse -Force
+          python lan-build/v23-patch/patch_android.py
+          python lan-build/v25-clean/patch_style_fonts.py
+          python lan-build/v25-qr-pin/patch_qr_pin.py buildsrc/lan_file_transfer_v1
+          python -m py_compile lan-build/v25-clean/patch_style_fonts.py lan-build/v25-qr-pin/patch_qr_pin.py
+          $gui=Get-Content 'buildsrc\lan_file_transfer_v1\pc\lantransfer\gui.py' -Raw
+          $app=Get-Content 'buildsrc\lan_file_transfer_v1\pc\app.py' -Raw
+          if($gui -notmatch '_show_qr_dialog'){throw 'Dynamic QR UI missing'}
+          if($gui -notmatch '_apply_custom_pin'){throw 'Custom PIN UI missing'}
+          if($app -notmatch 'update_pin'){throw 'Runtime PIN callback missing'}
+
+      - name: Reconstruct bundled fonts
+        shell: pwsh
+        run: |
+          $fontParts=@('lan-build/v25-assets/font00.b64','lan-build/v25-assets/font01_02.b64','lan-build/v25-assets/font03.b64','lan-build/v25-assets/font04.b64','lan-build/v25-assets/font05.b64','lan-build/v25-assets/font06.b64','lan-build/v25-assets/font07.b64')
+          $fb64=($fontParts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('fonts.zip',[Convert]::FromBase64String($fb64))
+          $fh=(Get-FileHash fonts.zip -Algorithm SHA256).Hash.ToLower()
+          if($fh -ne '363592061ddab7cfe0c02af995495a44d3a95579a455eedfbf99021f570c9f16'){throw "Font SHA256 mismatch: $fh"}
+          Expand-Archive fonts.zip fonttmp -Force
+          New-Item -ItemType Directory -Force 'buildsrc\lan_file_transfer_v1\pc\assets\fonts'|Out-Null
+          Copy-Item fonttmp\Far_Nazanin.ttf 'buildsrc\lan_file_transfer_v1\pc\assets\fonts\Far_Nazanin.ttf' -Force
+          Copy-Item fonttmp\Far_TitrBd.ttf 'buildsrc\lan_file_transfer_v1\pc\assets\fonts\Far_TitrBd.ttf' -Force
+
+      - name: Install dependencies and run tests
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r dev-requirements.txt pyinstaller pillow "qrcode[pil]"
+          python -m compileall -q .
+          python -m pytest -q tests
+          python -c "import qrcode, PIL; print('QR + PIL dependencies OK')"
+
+      - name: Generate icon and windowed runtime hook
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force assets|Out-Null
+          @'
+          from PIL import Image,ImageDraw
+          s=256
+          im=Image.new('RGBA',(s,s),(28,123,238,255)); d=ImageDraw.Draw(im)
+          d.ellipse((34,34,222,222),outline='white',width=12)
+          d.polygon([(61,126),(201,72),(147,191),(124,143),(94,166)],fill='white')
+          im.save('assets/lan_share.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          '@ | python -
+          @'
+          import os,sys
+          if sys.stdout is None: sys.stdout=open(os.devnull,'w',encoding='utf-8')
+          if sys.stderr is None: sys.stderr=open(os.devnull,'w',encoding='utf-8')
+          '@ | Set-Content -Encoding UTF8 pyi_rth_windowed_stdio.py
+
+      - name: Build standalone Windows EXE
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --runtime-hook pyi_rth_windowed_stdio.py --icon assets\lan_share.ico --add-data "assets\lan_share.ico;assets" --add-data "assets\fonts;assets\fonts" --name LANShareV25 app.py --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all websockets --collect-all qrcode --collect-all PIL
+          if(!(Test-Path dist\LANShareV25.exe)){throw 'Windows EXE missing'}
+
+      - name: Real HTTP and UDP Radar smoke test
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          $p=Start-Process '.\dist\LANShareV25.exe' -PassThru
+          try{
+            $ok=$false
+            for($i=0;$i -lt 30;$i++){
+              Start-Sleep -Milliseconds 500
+              if($p.HasExited){throw "App exited early with $($p.ExitCode)"}
+              try{$r=Invoke-RestMethod 'http://127.0.0.1:8765/api/ping' -TimeoutSec 1;if($r.service -eq 'LAN File Transfer'){$ok=$true;break}}catch{}
+            }
+            if(!$ok){throw 'HTTP service did not become available'}
+            $u=New-Object System.Net.Sockets.UdpClient
+            $u.Client.ReceiveTimeout=2500
+            $m=[Text.Encoding]::UTF8.GetBytes('LANFT_DISCOVER_V2')
+            [void]$u.Send($m,$m.Length,'127.0.0.1',8766)
+            $ep=New-Object System.Net.IPEndPoint([Net.IPAddress]::Any,0)
+            $b=$u.Receive([ref]$ep)
+            $o=([Text.Encoding]::UTF8.GetString($b))|ConvertFrom-Json
+            $u.Close()
+            if($o.service -ne 'LAN File Transfer' -or $o.port -ne 8765){throw 'UDP Radar response invalid'}
+            Write-Host 'LAN SHARE V2.5 HTTP + UDP Radar PASS'
+          }finally{if(!$p.HasExited){Stop-Process -Id $p.Id -Force}}
+
+      - name: Build Windows installer and firewall rules
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppId={{A783A5C0-2B74-4B25-98A8-8A25512E91F5}
+          AppName=LAN SHARE
+          AppVersion=2.5.0
+          AppPublisher=LAN SHARE
+          DefaultDirName={autopf}\LAN SHARE
+          DefaultGroupName=LAN SHARE
+          DisableProgramGroupPage=yes
+          OutputDir=installer-output
+          OutputBaseFilename=LANShare-Windows-V2.5-Setup
+          SetupIconFile=assets\lan_share.ico
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=admin
+          UninstallDisplayIcon={app}\LANShareV25.exe
+          [Files]
+          Source: "dist\LANShareV25.exe"; DestDir: "{app}"; Flags: ignoreversion
+          [Icons]
+          Name: "{autoprograms}\LAN SHARE"; Filename: "{app}\LANShareV25.exe"
+          Name: "{autodesktop}\LAN SHARE"; Filename: "{app}\LANShareV25.exe"
+          [Run]
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE TCP"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""LAN SHARE TCP"" dir=in action=allow program=""{app}\LANShareV25.exe"" enable=yes profile=private,public protocol=TCP localport=8765 remoteip=localsubnet"; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE UDP Radar"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""LAN SHARE UDP Radar"" dir=in action=allow program=""{app}\LANShareV25.exe"" enable=yes profile=private,public protocol=UDP localport=8766 remoteip=localsubnet"; Flags: runhidden
+          [UninstallRun]
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE TCP"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE UDP Radar"""; Flags: runhidden
+          '@ | Set-Content -Encoding UTF8 installer.iss
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss
+          if(!(Test-Path installer-output\LANShare-Windows-V2.5-Setup.exe)){throw 'Installer missing'}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LANShare-Windows-V2.5-Clean
+          path: buildsrc/lan_file_transfer_v1/pc/installer-output/LANShare-Windows-V2.5-Setup.exe
+          if-no-files-found: error
+
+  android:
+    name: Android V2.5 Clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source and apply clean V2.5 patches
+        shell: bash
+        run: |
+          cat lan-build/minsrc_v4/part00.b64 lan-build/minsrc_v4/part01.b64 lan-build/minsrc_v4/part02.b64 lan-build/minsrc_v4/part03.b64 | base64 -d > lan-min.tar.gz
+          echo '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af  lan-min.tar.gz'|sha256sum -c -
+          mkdir -p buildsrc && tar -xzf lan-min.tar.gz -C buildsrc
+          cp -a lan-build/v2-overlay/. buildsrc/lan_file_transfer_v1/
+          cp -a lan-build/v22-overlay/. buildsrc/lan_file_transfer_v1/
+          python lan-build/v23-patch/patch_android.py
+          python lan-build/v25-clean/patch_style_fonts.py
+          python lan-build/v25-qr-pin/patch_qr_pin.py buildsrc/lan_file_transfer_v1
+          grep -q 'scanConnectionQr' buildsrc/lan_file_transfer_v1/android/app/src/main/java/ir/local/lantransfer/MainActivity.java
+          grep -q 'android.permission.CAMERA' buildsrc/lan_file_transfer_v1/android/app/src/main/AndroidManifest.xml
+          grep -q 'zxing-android-embedded:4.3.0' buildsrc/lan_file_transfer_v1/android/app/build.gradle.kts
+          grep -q 'versionName = "2.5.0"' buildsrc/lan_file_transfer_v1/android/app/build.gradle.kts
+          sed -i 's/compileSdk = 37/compileSdk = 36/' buildsrc/lan_file_transfer_v1/android/app/build.gradle.kts
+
+      - name: Reconstruct Android fonts
+        shell: bash
+        run: |
+          cat lan-build/v25-assets/font00.b64 lan-build/v25-assets/font01_02.b64 lan-build/v25-assets/font03.b64 lan-build/v25-assets/font04.b64 lan-build/v25-assets/font05.b64 lan-build/v25-assets/font06.b64 lan-build/v25-assets/font07.b64 | base64 -d > fonts.zip
+          echo '363592061ddab7cfe0c02af995495a44d3a95579a455eedfbf99021f570c9f16  fonts.zip'|sha256sum -c -
+          mkdir -p fonttmp buildsrc/lan_file_transfer_v1/android/app/src/main/res/font
+          unzip -q fonts.zip -d fonttmp
+          cp fonttmp/Far_Nazanin.ttf buildsrc/lan_file_transfer_v1/android/app/src/main/res/font/far_nazanin.ttf
+          cp fonttmp/Far_TitrBd.ttf buildsrc/lan_file_transfer_v1/android/app/src/main/res/font/far_titr_bold.ttf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Compile Android APK
+        working-directory: buildsrc/lan_file_transfer_v1/android
+        run: |
+          gradle --no-daemon :app:assembleDebug
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p "$GITHUB_WORKSPACE/androidout"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/androidout/LANShare-Android-V2.5.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LANShare-Android-V2.5-Clean
+          path: androidout/LANShare-Android-V2.5.apk
+          if-no-files-found: error
+
+  publish:
+    name: Publish V2.5 Clean installers
+    needs: [windows,android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/lan-share-v24-fonts
+      - uses: actions/download-artifact@v4
+        with:
+          name: LANShare-Windows-V2.5-Clean
+          path: release-v25-clean
+      - uses: actions/download-artifact@v4
+        with:
+          name: LANShare-Android-V2.5-Clean
+          path: release-v25-clean
+      - name: Publish release files
+        shell: bash
+        run: |
+          cd release-v25-clean
+          sha256sum LANShare-Windows-V2.5-Setup.exe LANShare-Android-V2.5.apk > SHA256SUMS-V2.5.txt
+          cd ..
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release-v25-clean/
+          git commit -m 'build: publish LAN SHARE V2.5 clean installers [skip build]' || exit 0
+          git push origin HEAD:build/lan-share-v24-fonts
