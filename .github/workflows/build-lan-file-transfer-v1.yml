@@ -1,0 +1,175 @@
+name: Build LAN File Transfer V1
+
+on:
+  push:
+    branches:
+      - build/lan-file-transfer-v1
+    paths:
+      - 'lan-build/source_parts_v2/**'
+      - '.github/workflows/build-lan-file-transfer-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct and verify source ZIP
+        shell: pwsh
+        run: |
+          $parts = @(
+            'lan-build/source_parts_v2/part00.b64',
+            'lan-build/source_parts_v2/part01.b64',
+            'lan-build/source_parts_v2/part02.b64',
+            'lan-build/source_parts_v2/part03.b64',
+            'lan-build/source_parts_v2/part04.b64',
+            'lan-build/source_parts_v2/part05.b64',
+            'lan-build/source_parts_v2/part06a.b64',
+            'lan-build/source_parts_v2/part06b.b64',
+            'lan-build/source_parts_v2/part07.b64'
+          )
+          $b64 = ($parts | ForEach-Object { Get-Content $_ -Raw }) -join ''
+          [IO.File]::WriteAllBytes('lan-file-transfer-v1-source.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'lan-file-transfer-v1-source.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne 'c1918be484dab982474a1b97a07549e1b7011b6d98952c37cecbffbc6d589c54') { throw "Source SHA256 mismatch: $hash" }
+          Expand-Archive -Path 'lan-file-transfer-v1-source.zip' -DestinationPath 'buildsrc' -Force
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pyinstaller
+
+      - name: Run PC tests
+        shell: pwsh
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        run: python -m pytest -q
+
+      - name: Build standalone EXE
+        shell: pwsh
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LANFileTransfer app.py --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all websockets
+          if (!(Test-Path 'dist/LANFileTransfer.exe')) { throw 'PyInstaller output missing' }
+
+      - name: Build Windows Setup
+        shell: pwsh
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { throw 'Inno Setup compiler not found' }
+          & $iscc 'installer.iss'
+          if (!(Test-Path 'installer-output/LANFileTransfer-Setup.exe')) { throw 'Installer output missing' }
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\winout" | Out-Null
+          Copy-Item 'installer-output/LANFileTransfer-Setup.exe' "${{ github.workspace }}\winout\LANFileTransfer-Windows-Setup.exe"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LANFileTransfer-Windows
+          path: winout/LANFileTransfer-Windows-Setup.exe
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct and verify source ZIP
+        shell: bash
+        run: |
+          cat \
+            lan-build/source_parts_v2/part00.b64 \
+            lan-build/source_parts_v2/part01.b64 \
+            lan-build/source_parts_v2/part02.b64 \
+            lan-build/source_parts_v2/part03.b64 \
+            lan-build/source_parts_v2/part04.b64 \
+            lan-build/source_parts_v2/part05.b64 \
+            lan-build/source_parts_v2/part06a.b64 \
+            lan-build/source_parts_v2/part06b.b64 \
+            lan-build/source_parts_v2/part07.b64 | base64 -d > lan-file-transfer-v1-source.zip
+          echo 'c1918be484dab982474a1b97a07549e1b7011b6d98952c37cecbffbc6d589c54  lan-file-transfer-v1-source.zip' | sha256sum -c -
+          mkdir -p buildsrc
+          unzip -q lan-file-transfer-v1-source.zip -d buildsrc
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build installable APK
+        working-directory: buildsrc/lan_file_transfer_v1/android
+        run: |
+          gradle --no-daemon :app:assembleDebug
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p "$GITHUB_WORKSPACE/androidout"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/androidout/LANFileTransfer-Android.apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LANFileTransfer-Android
+          path: androidout/LANFileTransfer-Android.apk
+          if-no-files-found: error
+
+  publish:
+    name: Publish installers to build branch
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/lan-file-transfer-v1
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LANFileTransfer-Windows
+          path: release
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LANFileTransfer-Android
+          path: release
+
+      - name: Create checksums and publish
+        shell: bash
+        run: |
+          cd release
+          sha256sum LANFileTransfer-Windows-Setup.exe LANFileTransfer-Android.apk > SHA256SUMS.txt
+          cd ..
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release/LANFileTransfer-Windows-Setup.exe release/LANFileTransfer-Android.apk release/SHA256SUMS.txt
+          git commit -m 'build: publish LAN File Transfer installers [skip build]'
+          git push origin HEAD:build/lan-file-transfer-v1
