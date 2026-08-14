@@ -6,7 +6,8 @@ s = p.read_text(encoding='utf-8')
 signature = 'private int iconForPage(int page)'
 pos = s.find(signature)
 if pos < 0:
-    raise SystemExit('iconForPage signature not found')
+    print('No iconForPage method in clean navigation path; compile guard is a no-op')
+    raise SystemExit(0)
 
 start = s.rfind('\n', 0, pos) + 1
 open_brace = s.find('{', pos)
