@@ -23,7 +23,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat landrop-build/source/part-*.b64 | base64 -d > landrop-v2.1.zip
+          cat \
+            landrop-build/source/part-00.b64 \
+            landrop-build/source/part-01.b64 \
+            landrop-build/source/part-02.b64 \
+            landrop-build/source/part-03.b64 \
+            landrop-build/source/part-04.b64 \
+            landrop-build/source/part-05a.b64 \
+            landrop-build/source/part-05b.b64 \
+            landrop-build/source/part-06.b64 \
+            | base64 -d > landrop-v2.1.zip
+          unzip -tq landrop-v2.1.zip
           mkdir -p src
           unzip -q landrop-v2.1.zip -d src
 
@@ -79,8 +89,17 @@ jobs:
       - name: Rebuild source ZIP
         shell: pwsh
         run: |
-          $parts = Get-ChildItem "landrop-build/source/part-*.b64" | Sort-Object Name
-          $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ""
+          $paths = @(
+            "landrop-build/source/part-00.b64",
+            "landrop-build/source/part-01.b64",
+            "landrop-build/source/part-02.b64",
+            "landrop-build/source/part-03.b64",
+            "landrop-build/source/part-04.b64",
+            "landrop-build/source/part-05a.b64",
+            "landrop-build/source/part-05b.b64",
+            "landrop-build/source/part-06.b64"
+          )
+          $b64 = ($paths | ForEach-Object { Get-Content $_ -Raw }) -join ""
           [IO.File]::WriteAllBytes("landrop-v2.1.zip", [Convert]::FromBase64String($b64))
           New-Item -ItemType Directory -Force src | Out-Null
           Expand-Archive -Path landrop-v2.1.zip -DestinationPath src -Force
