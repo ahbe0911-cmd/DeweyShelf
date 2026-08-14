@@ -23,57 +23,104 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.12
+      - name: Setup Python 3.8 for legacy Windows
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.8'
+          architecture: 'x64'
           cache: 'pip'
           cache-dependency-path: heic-pro-converter/requirements.txt
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade "pip==24.3.1"
           python -m pip install -r requirements.txt
 
-      - name: Validate compression engine
+      - name: Validate HEIC and JPG engine
         shell: pwsh
         run: |
           @'
           import sys
+          import tempfile
+          from pathlib import Path
+
           sys.path.insert(0, 'src')
+          import tkinter
           from PIL import Image
-          from converter import ConvertOptions, _compress_image_to_target, HEIF_AVAILABLE
+          from converter import ConvertOptions, convert_image_to_jpg, HEIF_AVAILABLE
 
           assert HEIF_AVAILABLE, 'pillow-heif plugin is unavailable'
-          img = Image.effect_noise((2400, 1800), 90).convert('RGB')
+          assert tkinter.TclVersion > 0
+
           options = ConvertOptions(target_kb=488, min_quality=30, max_quality=95)
-          data, quality, final_img, resized, status = _compress_image_to_target(img, None, None, options)
-          assert status == 'انجام شد'
-          assert data is not None
-          assert len(data) <= 488 * 1024, len(data)
-          assert quality >= 30
-          print(f'Compression test OK: {len(data) / 1024:.1f} KB, Q{quality}, {final_img.size}, resized={resized}')
+
+          with tempfile.TemporaryDirectory() as temp:
+              temp = Path(temp)
+              out = temp / 'out'
+              out.mkdir()
+
+              # 1) A small JPG must be accepted and copied byte-for-byte.
+              small = Image.new('RGB', (640, 480), 'white')
+              small_jpg = temp / 'small.jpg'
+              small.save(str(small_jpg), 'JPEG', quality=95)
+              original_bytes = small_jpg.read_bytes()
+              r1 = convert_image_to_jpg(small_jpg, out, options)
+              assert r1.ok, r1.message
+              assert r1.copied_original
+              assert r1.output.read_bytes() == original_bytes
+              assert r1.output_bytes <= 488 * 1024
+
+              # 2) A large JPG must be recompressed under the exact ceiling.
+              noisy = Image.effect_noise((2400, 1800), 90).convert('RGB')
+              large_jpg = temp / 'large.jpg'
+              noisy.save(str(large_jpg), 'JPEG', quality=98)
+              r2 = convert_image_to_jpg(large_jpg, out, options)
+              assert r2.ok, r2.message
+              assert r2.output_bytes <= 488 * 1024, r2.output_bytes
+
+              # 3) Real HEIC encode/decode path must work too.
+              heic_file = temp / 'sample.heic'
+              noisy.resize((1400, 1000)).save(str(heic_file), format='HEIF', quality=90)
+              r3 = convert_image_to_jpg(heic_file, out, options)
+              assert r3.ok, r3.message
+              assert r3.output_bytes <= 488 * 1024, r3.output_bytes
+
+              print('Small JPG copy OK:', r1.output_bytes)
+              print('Large JPG compression OK:', r2.output_bytes, 'Q', r2.quality)
+              print('HEIC conversion OK:', r3.output_bytes, 'Q', r3.quality)
           '@ | Set-Content -Encoding UTF8 _ci_test.py
           python _ci_test.py
 
-      - name: Build single-file Windows EXE
+      - name: Build single-file Windows EXE without Qt
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter" --collect-all pillow_heif --hidden-import pillow_heif src/app.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v2" --collect-all pillow_heif --hidden-import pillow_heif --hidden-import tkinter src/app.py
 
-      - name: Verify EXE
+      - name: Verify EXE file
         shell: pwsh
         run: |
-          if (-not (Test-Path 'dist/HEIC-Pro-Converter.exe')) { throw 'EXE was not created' }
-          $file = Get-Item 'dist/HEIC-Pro-Converter.exe'
+          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v2.exe')) { throw 'EXE was not created' }
+          $file = Get-Item 'dist/HEIC-Pro-Converter-v2.exe'
           if ($file.Length -lt 1MB) { throw 'EXE size is unexpectedly small' }
           Write-Host "Built: $($file.FullName)"
           Write-Host "Size: $([math]::Round($file.Length / 1MB, 2)) MB"
-          Get-FileHash 'dist/HEIC-Pro-Converter.exe' -Algorithm SHA256
+          Get-FileHash 'dist/HEIC-Pro-Converter-v2.exe' -Algorithm SHA256
+
+      - name: Runtime smoke test EXE
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v2.exe').Path
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 7
+          if ($process.HasExited) {
+            throw "EXE exited during startup. Exit code: $($process.ExitCode)"
+          }
+          Stop-Process -Id $process.Id -Force
+          Write-Host 'Runtime smoke test OK: application stayed alive with GUI loaded.'
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
-          name: HEIC-Pro-Converter-Windows
-          path: heic-pro-converter/dist/HEIC-Pro-Converter.exe
+          name: HEIC-Pro-Converter-v2-Windows-Legacy-Compatible
+          path: heic-pro-converter/dist/HEIC-Pro-Converter-v2.exe
           if-no-files-found: error
           retention-days: 30
