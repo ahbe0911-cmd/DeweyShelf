@@ -1,0 +1,185 @@
+name: Build LAN SHARE V2.5 Windows Verified
+
+on:
+  push:
+    branches: [build/lan-share-v24-fonts]
+    paths:
+      - '.github/workflows/build-lan-share-v25-windows-only.yml'
+      - 'lan-build/v25-clean/**'
+      - 'lan-build/v25-qr-pin/**'
+      - 'lan-build/v25-clean-fonts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SRC: buildsrc/lan_file_transfer_v1
+  FONT_SHA: 7bdbdb057ef0ededd57604a220fa0cc455b25a049922069482979977e2ac1318
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Reconstruct verified V2.5 source
+        shell: pwsh
+        run: |
+          $parts=@('lan-build/minsrc_v4/part00.b64','lan-build/minsrc_v4/part01.b64','lan-build/minsrc_v4/part02.b64','lan-build/minsrc_v4/part03.b64')
+          $b64=($parts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('base.tar.gz',[Convert]::FromBase64String($b64))
+          if((Get-FileHash base.tar.gz -Algorithm SHA256).Hash.ToLower() -ne '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af'){throw 'Base source checksum failed'}
+          New-Item -ItemType Directory -Force buildsrc|Out-Null
+          tar -xzf base.tar.gz -C buildsrc
+          Copy-Item 'lan-build\v2-overlay\*' $env:SRC -Recurse -Force
+          Copy-Item 'lan-build\v22-overlay\*' $env:SRC -Recurse -Force
+          python lan-build/v23-patch/patch_android.py
+          python lan-build/v25-clean/patch_style_fonts.py
+          python lan-build/v25-clean/patch_qr_compat.py
+          python lan-build/v25-qr-pin/patch_qr_pin.py $env:SRC
+          python lan-build/v25-clean/patch_android_compile_fix.py
+          $g=Get-Content "$env:SRC\pc\lantransfer\gui.py" -Raw
+          $a=Get-Content "$env:SRC\pc\app.py" -Raw
+          if($g -notmatch '_show_qr_dialog' -or $g -notmatch '_apply_custom_pin'){throw 'QR/PIN desktop UI missing'}
+          if($a -notmatch 'update_pin'){throw 'Custom PIN backend missing'}
+
+      - name: Verify original Far fonts
+        shell: pwsh
+        run: |
+          $parts=0..5|ForEach-Object{"lan-build/v25-clean-fonts/part$($_.ToString('00')).b64"}
+          $b64=($parts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('fonts.zip',[Convert]::FromBase64String($b64))
+          $hash=(Get-FileHash fonts.zip -Algorithm SHA256).Hash.ToLower()
+          if($hash -ne $env:FONT_SHA){throw "Font checksum failed: $hash"}
+          Expand-Archive fonts.zip fonttmp -Force
+          $naz=(Get-ChildItem fonttmp -Recurse -Filter Far_Nazanin.ttf|Select-Object -First 1).FullName
+          $tit=(Get-ChildItem fonttmp -Recurse -Filter Far_TitrBd.ttf|Select-Object -First 1).FullName
+          New-Item -ItemType Directory -Force "$env:SRC\pc\assets\fonts"|Out-Null
+          Copy-Item $naz "$env:SRC\pc\assets\fonts\Far_Nazanin.ttf" -Force
+          Copy-Item $tit "$env:SRC\pc\assets\fonts\Far_TitrBd.ttf" -Force
+
+      - name: Dependencies and unit tests
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r dev-requirements.txt pyinstaller pillow "qrcode[pil]"
+          python -m compileall -q .
+          python -m pytest -q tests
+
+      - name: Prepare app resources
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force assets|Out-Null
+          @'
+          from PIL import Image,ImageDraw
+          im=Image.new('RGBA',(256,256),(27,121,238,255));d=ImageDraw.Draw(im)
+          d.ellipse((34,34,222,222),outline='white',width=12)
+          d.polygon([(61,126),(201,72),(147,191),(124,143),(94,166)],fill='white')
+          im.save('assets/lan_share.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          '@|python -
+          @'
+          import os,sys
+          if sys.stdout is None: sys.stdout=open(os.devnull,'w',encoding='utf-8')
+          if sys.stderr is None: sys.stderr=open(os.devnull,'w',encoding='utf-8')
+          '@|Set-Content -Encoding UTF8 pyi_rth_windowed_stdio.py
+
+      - name: Build fast-start frozen application
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --runtime-hook pyi_rth_windowed_stdio.py --icon assets\lan_share.ico --add-data "assets\lan_share.ico;assets" --add-data "assets\fonts;assets\fonts" --name LANShareV25 app.py --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all websockets --collect-all qrcode --collect-all PIL
+          if(!(Test-Path dist\LANShareV25\LANShareV25.exe)){throw 'Frozen EXE missing'}
+
+      - name: Verify actual frozen EXE over HTTP and UDP Radar
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          $out=Join-Path (Get-Location) 'frozen-stdout.log'
+          $err=Join-Path (Get-Location) 'frozen-stderr.log'
+          $p=Start-Process '.\dist\LANShareV25\LANShareV25.exe' -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+          try{
+            $ok=$false
+            for($i=0;$i -lt 120;$i++){
+              Start-Sleep -Milliseconds 500
+              if($p.HasExited){
+                Write-Host '=== FROZEN STDOUT ==='; if(Test-Path $out){Get-Content $out -Raw}
+                Write-Host '=== FROZEN STDERR ==='; if(Test-Path $err){Get-Content $err -Raw}
+                throw "Frozen app exited: $($p.ExitCode)"
+              }
+              try{$r=Invoke-RestMethod 'http://127.0.0.1:8765/api/ping' -TimeoutSec 1;if($r.service -eq 'LAN File Transfer'){$ok=$true;break}}catch{}
+            }
+            if(!$ok){
+              Write-Host '=== FROZEN STDERR ==='; if(Test-Path $err){Get-Content $err -Raw}
+              throw 'Frozen HTTP server failed'
+            }
+            $u=New-Object Net.Sockets.UdpClient;$u.Client.ReceiveTimeout=3000
+            $m=[Text.Encoding]::UTF8.GetBytes('LANFT_DISCOVER_V2');[void]$u.Send($m,$m.Length,'127.0.0.1',8766)
+            $ep=New-Object Net.IPEndPoint([Net.IPAddress]::Any,0);$b=$u.Receive([ref]$ep);$o=([Text.Encoding]::UTF8.GetString($b))|ConvertFrom-Json;$u.Close()
+            if($o.service -ne 'LAN File Transfer' -or $o.port -ne 8765){throw 'UDP Radar response invalid'}
+            Write-Host 'VERIFIED: FROZEN HTTP + UDP RADAR PASS'
+          }finally{if(!$p.HasExited){Stop-Process -Id $p.Id -Force}}
+
+      - name: Build single Windows Setup EXE
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppId={{A783A5C0-2B74-4B25-98A8-8A25512E91F5}
+          AppName=LAN SHARE
+          AppVersion=2.5.0
+          AppPublisher=LAN SHARE
+          DefaultDirName={autopf}\LAN SHARE
+          DefaultGroupName=LAN SHARE
+          DisableProgramGroupPage=yes
+          OutputDir=installer-output
+          OutputBaseFilename=LANShare-Windows-V2.5-Setup
+          SetupIconFile=assets\lan_share.ico
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=admin
+          UninstallDisplayIcon={app}\LANShareV25.exe
+          [Files]
+          Source: "dist\LANShareV25\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          [Icons]
+          Name: "{autoprograms}\LAN SHARE"; Filename: "{app}\LANShareV25.exe"
+          Name: "{autodesktop}\LAN SHARE"; Filename: "{app}\LANShareV25.exe"
+          [Run]
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE TCP"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""LAN SHARE TCP"" dir=in action=allow program=""{app}\LANShareV25.exe"" enable=yes profile=private,public protocol=TCP localport=8765 remoteip=localsubnet"; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE UDP Radar"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""LAN SHARE UDP Radar"" dir=in action=allow program=""{app}\LANShareV25.exe"" enable=yes profile=private,public protocol=UDP localport=8766 remoteip=localsubnet"; Flags: runhidden
+          [UninstallRun]
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE TCP"""; Flags: runhidden
+          Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""LAN SHARE UDP Radar"""; Flags: runhidden
+          '@|Set-Content -Encoding UTF8 installer.iss
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss
+          if(!(Test-Path installer-output\LANShare-Windows-V2.5-Setup.exe)){throw 'Setup missing'}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LANShare-Windows-V2.5-Verified
+          path: buildsrc/lan_file_transfer_v1/pc/installer-output/LANShare-Windows-V2.5-Setup.exe
+          if-no-files-found: error
+
+      - name: Commit verified Windows Setup
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-v25-verified|Out-Null
+          Copy-Item "$env:SRC\pc\installer-output\LANShare-Windows-V2.5-Setup.exe" 'release-v25-verified\LANShare-Windows-V2.5-Setup.exe' -Force
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release-v25-verified/LANShare-Windows-V2.5-Setup.exe
+          git commit -m 'build: publish verified LAN SHARE Windows V2.5 [skip build]'
+          git push origin HEAD:build/lan-share-v24-fonts
