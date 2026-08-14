@@ -63,7 +63,7 @@ grep('''        self.root.configure(bg=theme.BACKGROUND)\n        self._set_wind
 
 anchor = '''    def _set_window_identity(self) -> None:\n'''
 font_method = '''    def _register_private_fonts(self) -> None:\n        """Register bundled Far fonts for this process only; no system install required."""\n        if os.name == "nt":\n            try:\n                FR_PRIVATE = 0x10\n                for rel in ("assets/fonts/Far_Nazanin.ttf", "assets/fonts/Far_TitrBd.ttf"):\n                    path = self._resource_path(rel)\n                    ctypes.windll.gdi32.AddFontResourceExW(path, FR_PRIVATE, 0)\n            except Exception:\n                pass\n        try:\n            families = list(tkfont.families(self.root))\n            nazanin = next((f for f in families if "nazanin" in f.lower()), None)\n            titr = next((f for f in families if "titr" in f.lower()), None)\n            if nazanin:\n                theme.FONT_FAMILY = nazanin\n            if titr:\n                theme.FONT_TITLE = titr\n            else:\n                theme.FONT_TITLE = theme.FONT_FAMILY\n        except Exception:\n            theme.FONT_TITLE = theme.FONT_FAMILY\n\n'''
-if '_register_private_fonts' not in g.split(anchor)[0]:
+if 'def _register_private_fonts' not in g:
     grep(anchor, font_method + anchor, 'font method')
 
 # Blue LAN Drop-like top bar.
