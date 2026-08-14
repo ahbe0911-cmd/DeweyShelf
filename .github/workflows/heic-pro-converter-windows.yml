@@ -101,40 +101,40 @@ jobs:
           '@ | Set-Content -Encoding UTF8 _ci_test.py
           python _ci_test.py
 
-      - name: Syntax check commercial UI
+      - name: Syntax check Studio UI
         run: |
           python -m py_compile src/app.py src/converter.py
 
-      - name: Build V4 Commercial single-file EXE
+      - name: Build V5 Studio single-file EXE
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v4-Commercial" --collect-all pillow_heif --collect-all customtkinter --hidden-import pillow_heif --hidden-import tkinter src/app.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v5-Studio" --collect-all pillow_heif --collect-all customtkinter --hidden-import pillow_heif --hidden-import tkinter src/app.py
 
       - name: Verify EXE file
         shell: pwsh
         run: |
-          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v4-Commercial.exe')) { throw 'EXE was not created' }
-          $file = Get-Item 'dist/HEIC-Pro-Converter-v4-Commercial.exe'
+          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v5-Studio.exe')) { throw 'EXE was not created' }
+          $file = Get-Item 'dist/HEIC-Pro-Converter-v5-Studio.exe'
           if ($file.Length -lt 1MB) { throw 'EXE size is unexpectedly small' }
           Write-Host "Built: $($file.FullName)"
           Write-Host "Size: $([math]::Round($file.Length / 1MB, 2)) MB"
-          Get-FileHash 'dist/HEIC-Pro-Converter-v4-Commercial.exe' -Algorithm SHA256
+          Get-FileHash 'dist/HEIC-Pro-Converter-v5-Studio.exe' -Algorithm SHA256
 
       - name: Runtime smoke test EXE
         shell: pwsh
         run: |
-          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v4-Commercial.exe').Path
+          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v5-Studio.exe').Path
           $process = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 10
           if ($process.HasExited) {
             throw "EXE exited during startup. Exit code: $($process.ExitCode)"
           }
           Stop-Process -Id $process.Id -Force
-          Write-Host 'Runtime smoke test OK: V4 Commercial GUI stayed alive.'
+          Write-Host 'Runtime smoke test OK: V5 Studio GUI stayed alive.'
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
-          name: HEIC-Pro-Converter-v4-Commercial-Windows
-          path: heic-pro-converter/dist/HEIC-Pro-Converter-v4-Commercial.exe
+          name: HEIC-Pro-Converter-v5-Studio-Windows
+          path: heic-pro-converter/dist/HEIC-Pro-Converter-v5-Studio.exe
           if-no-files-found: error
           retention-days: 30
