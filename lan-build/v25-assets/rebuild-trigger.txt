@@ -1,0 +1,1 @@
+V2.5 final rebuild after QR, custom PIN, responsive mobile UI and embedded font assets.
