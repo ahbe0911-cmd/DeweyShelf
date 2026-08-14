@@ -36,12 +36,13 @@ jobs:
           python -m pip install --upgrade "pip==24.3.1"
           python -m pip install -r requirements.txt
 
-      - name: Validate HEIC and JPG engine
+      - name: Validate Turbo engine and parallel safety
         shell: pwsh
         run: |
           @'
           import sys
           import tempfile
+          from concurrent.futures import ThreadPoolExecutor
           from pathlib import Path
 
           sys.path.insert(0, 'src')
@@ -51,7 +52,6 @@ jobs:
 
           assert HEIF_AVAILABLE, 'pillow-heif plugin is unavailable'
           assert tkinter.TclVersion > 0
-
           options = ConvertOptions(target_kb=488, min_quality=30, max_quality=95)
 
           with tempfile.TemporaryDirectory() as temp:
@@ -59,68 +59,80 @@ jobs:
               out = temp / 'out'
               out.mkdir()
 
-              # 1) A small JPG must be accepted and copied byte-for-byte.
               small = Image.new('RGB', (640, 480), 'white')
               small_jpg = temp / 'small.jpg'
               small.save(str(small_jpg), 'JPEG', quality=95)
               original_bytes = small_jpg.read_bytes()
               r1 = convert_image_to_jpg(small_jpg, out, options)
-              assert r1.ok, r1.message
-              assert r1.copied_original
+              assert r1.ok and r1.copied_original
               assert r1.output.read_bytes() == original_bytes
-              assert r1.output_bytes <= 488 * 1024
 
-              # 2) A large JPG must be recompressed under the exact ceiling.
               noisy = Image.effect_noise((2400, 1800), 90).convert('RGB')
               large_jpg = temp / 'large.jpg'
               noisy.save(str(large_jpg), 'JPEG', quality=98)
               r2 = convert_image_to_jpg(large_jpg, out, options)
-              assert r2.ok, r2.message
-              assert r2.output_bytes <= 488 * 1024, r2.output_bytes
+              assert r2.ok and r2.output_bytes <= 488 * 1024
 
-              # 3) Real HEIC encode/decode path must work too.
               heic_file = temp / 'sample.heic'
               noisy.resize((1400, 1000)).save(str(heic_file), format='HEIF', quality=90)
               r3 = convert_image_to_jpg(heic_file, out, options)
-              assert r3.ok, r3.message
-              assert r3.output_bytes <= 488 * 1024, r3.output_bytes
+              assert r3.ok and r3.output_bytes <= 488 * 1024
 
-              print('Small JPG copy OK:', r1.output_bytes)
-              print('Large JPG compression OK:', r2.output_bytes, 'Q', r2.quality)
+              # Parallel collision test: same basename in separate directories.
+              inputs = []
+              for i in range(4):
+                  d = temp / ('set%d' % i)
+                  d.mkdir()
+                  p = d / 'photo.jpg'
+                  noisy.resize((1600, 1200)).save(str(p), 'JPEG', quality=97)
+                  inputs.append(p)
+              with ThreadPoolExecutor(max_workers=4) as pool:
+                  results = list(pool.map(lambda p: convert_image_to_jpg(p, out, options), inputs))
+              assert all(r.ok for r in results)
+              assert all(r.output_bytes <= 488 * 1024 for r in results)
+              assert len(set(str(r.output) for r in results)) == 4
+
+              print('Small JPG no-loss copy OK:', r1.output_bytes)
+              print('Large JPG Turbo compression OK:', r2.output_bytes, 'Q', r2.quality)
               print('HEIC conversion OK:', r3.output_bytes, 'Q', r3.quality)
+              print('Parallel safety OK: 4 concurrent files')
           '@ | Set-Content -Encoding UTF8 _ci_test.py
           python _ci_test.py
 
-      - name: Build single-file Windows EXE without Qt
+      - name: Syntax check UI
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v2" --collect-all pillow_heif --hidden-import pillow_heif --hidden-import tkinter src/app.py
+          python -m py_compile src/app.py src/converter.py
+
+      - name: Build V3 Turbo single-file EXE
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v3-Turbo" --collect-all pillow_heif --hidden-import pillow_heif --hidden-import tkinter src/app.py
 
       - name: Verify EXE file
         shell: pwsh
         run: |
-          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v2.exe')) { throw 'EXE was not created' }
-          $file = Get-Item 'dist/HEIC-Pro-Converter-v2.exe'
+          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v3-Turbo.exe')) { throw 'EXE was not created' }
+          $file = Get-Item 'dist/HEIC-Pro-Converter-v3-Turbo.exe'
           if ($file.Length -lt 1MB) { throw 'EXE size is unexpectedly small' }
           Write-Host "Built: $($file.FullName)"
           Write-Host "Size: $([math]::Round($file.Length / 1MB, 2)) MB"
-          Get-FileHash 'dist/HEIC-Pro-Converter-v2.exe' -Algorithm SHA256
+          Get-FileHash 'dist/HEIC-Pro-Converter-v3-Turbo.exe' -Algorithm SHA256
 
       - name: Runtime smoke test EXE
         shell: pwsh
         run: |
-          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v2.exe').Path
+          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v3-Turbo.exe').Path
           $process = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 7
+          Start-Sleep -Seconds 8
           if ($process.HasExited) {
             throw "EXE exited during startup. Exit code: $($process.ExitCode)"
           }
           Stop-Process -Id $process.Id -Force
-          Write-Host 'Runtime smoke test OK: application stayed alive with GUI loaded.'
+          Write-Host 'Runtime smoke test OK: V3 GUI stayed alive.'
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
-          name: HEIC-Pro-Converter-v2-Windows-Legacy-Compatible
-          path: heic-pro-converter/dist/HEIC-Pro-Converter-v2.exe
+          name: HEIC-Pro-Converter-v3-Turbo-Windows
+          path: heic-pro-converter/dist/HEIC-Pro-Converter-v3-Turbo.exe
           if-no-files-found: error
           retention-days: 30
