@@ -25,8 +25,12 @@ public final class Prefs {
                 .apply();
     }
 
-    public static void updateServer(Context c, String server) {
-        c.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(SERVER, server).apply();
+    public static void updateDiscovery(Context c, String server, String instanceId, String pcName) {
+        SharedPreferences.Editor e = c.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit()
+                .putString(SERVER, server);
+        if (instanceId != null && !instanceId.isEmpty()) e.putString(INSTANCE_ID, instanceId);
+        if (pcName != null && !pcName.isEmpty()) e.putString(PC_NAME, pcName);
+        e.apply();
     }
 
     public static String server(Context c) { return prefs(c).getString(SERVER, ""); }
