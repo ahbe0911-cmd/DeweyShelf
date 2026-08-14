@@ -1,0 +1,79 @@
+name: HEIC Pro Converter - Windows EXE
+
+on:
+  push:
+    branches:
+      - 'agent/heic-pro-converter-build'
+    paths:
+      - 'heic-pro-converter/**'
+      - '.github/workflows/heic-pro-converter-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: heic-pro-converter
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: heic-pro-converter/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate compression engine
+        shell: pwsh
+        run: |
+          @'
+          import sys
+          sys.path.insert(0, 'src')
+          from PIL import Image
+          from converter import ConvertOptions, _compress_image_to_target, HEIF_AVAILABLE
+
+          assert HEIF_AVAILABLE, 'pillow-heif plugin is unavailable'
+          img = Image.effect_noise((2400, 1800), 90).convert('RGB')
+          options = ConvertOptions(target_kb=488, min_quality=30, max_quality=95)
+          data, quality, final_img, resized, status = _compress_image_to_target(img, None, None, options)
+          assert status == 'انجام شد'
+          assert data is not None
+          assert len(data) <= 488 * 1024, len(data)
+          assert quality >= 30
+          print(f'Compression test OK: {len(data) / 1024:.1f} KB, Q{quality}, {final_img.size}, resized={resized}')
+          '@ | Set-Content -Encoding UTF8 _ci_test.py
+          python _ci_test.py
+
+      - name: Build single-file Windows EXE
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter" --collect-all pillow_heif --hidden-import pillow_heif src/app.py
+
+      - name: Verify EXE
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/HEIC-Pro-Converter.exe')) { throw 'EXE was not created' }
+          $file = Get-Item 'dist/HEIC-Pro-Converter.exe'
+          if ($file.Length -lt 1MB) { throw 'EXE size is unexpectedly small' }
+          Write-Host "Built: $($file.FullName)"
+          Write-Host "Size: $([math]::Round($file.Length / 1MB, 2)) MB"
+          Get-FileHash 'dist/HEIC-Pro-Converter.exe' -Algorithm SHA256
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: HEIC-Pro-Converter-Windows
+          path: heic-pro-converter/dist/HEIC-Pro-Converter.exe
+          if-no-files-found: error
+          retention-days: 30
