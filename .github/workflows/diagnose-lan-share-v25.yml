@@ -1,0 +1,79 @@
+name: Diagnose LAN SHARE V2.5
+
+on:
+  push:
+    branches: [build/lan-share-v24-fonts]
+    paths: ['.github/workflows/diagnose-lan-share-v25.yml']
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Reconstruct exactly like production
+        shell: pwsh
+        run: |
+          $parts=@('lan-build/minsrc_v4/part00.b64','lan-build/minsrc_v4/part01.b64','lan-build/minsrc_v4/part02.b64','lan-build/minsrc_v4/part03.b64')
+          $b64=($parts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('base.tar.gz',[Convert]::FromBase64String($b64))
+          New-Item -ItemType Directory -Force buildsrc|Out-Null
+          tar -xzf base.tar.gz -C buildsrc
+          Copy-Item 'lan-build\v2-overlay\*' 'buildsrc\lan_file_transfer_v1' -Recurse -Force
+          Copy-Item 'lan-build\v22-overlay\*' 'buildsrc\lan_file_transfer_v1' -Recurse -Force
+          python lan-build/v23-patch/patch_android.py
+          python lan-build/v25-clean/patch_style_fonts.py
+          python lan-build/v25-clean/patch_qr_compat.py
+          python lan-build/v25-qr-pin/patch_qr_pin.py buildsrc/lan_file_transfer_v1
+          python lan-build/v25-clean/patch_android_compile_fix.py
+
+      - name: Print Android duplicate case context
+        shell: pwsh
+        run: |
+          $f='buildsrc\lan_file_transfer_v1\android\app\src\main\java\ir\local\lantransfer\MainActivity.java'
+          Write-Host '=== ALL PAGE_SETTINGS CASES ==='
+          Select-String -Path $f -Pattern 'case PAGE_SETTINGS' -Context 8,8 | ForEach-Object { $_.ToString(); $_.Context.PreContext; $_.Context.PostContext }
+          Write-Host '=== LINES 630-690 ==='
+          $lines=Get-Content $f
+          for($i=629;$i -lt [Math]::Min(690,$lines.Count);$i++){ Write-Host (('{0,5}: {1}' -f ($i+1),$lines[$i])) }
+
+      - name: Reconstruct exact fonts for PC
+        shell: pwsh
+        run: |
+          $parts=0..5|ForEach-Object{"lan-build/v25-clean-fonts/part$($_.ToString('00')).b64"}
+          $b64=($parts|ForEach-Object{Get-Content $_ -Raw}) -join ''
+          [IO.File]::WriteAllBytes('fonts.zip',[Convert]::FromBase64String($b64))
+          Expand-Archive fonts.zip fonttmp -Force
+          $naz=(Get-ChildItem fonttmp -Recurse -Filter Far_Nazanin.ttf|Select-Object -First 1).FullName
+          $tit=(Get-ChildItem fonttmp -Recurse -Filter Far_TitrBd.ttf|Select-Object -First 1).FullName
+          New-Item -ItemType Directory -Force 'buildsrc\lan_file_transfer_v1\pc\assets\fonts'|Out-Null
+          Copy-Item $naz 'buildsrc\lan_file_transfer_v1\pc\assets\fonts\Far_Nazanin.ttf' -Force
+          Copy-Item $tit 'buildsrc\lan_file_transfer_v1\pc\assets\fonts\Far_TitrBd.ttf' -Force
+
+      - name: Install PC runtime dependencies
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r dev-requirements.txt pillow "qrcode[pil]"
+
+      - name: Capture real Windows traceback
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          $out=Join-Path (Get-Location) 'stdout.log'
+          $err=Join-Path (Get-Location) 'stderr.log'
+          $p=Start-Process python -ArgumentList '-u','app.py' -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+          Start-Sleep -Seconds 7
+          Write-Host "Process exited? $($p.HasExited)"
+          if($p.HasExited){ Write-Host "Exit code: $($p.ExitCode)" }
+          Write-Host '=== STDOUT ==='
+          if(Test-Path $out){ Get-Content $out -Raw }
+          Write-Host '=== STDERR / TRACEBACK ==='
+          if(Test-Path $err){ Get-Content $err -Raw }
+          if(!$p.HasExited){ Stop-Process -Id $p.Id -Force; Write-Host 'App remained alive for 7 seconds.' }
