@@ -1,0 +1,29 @@
+name: Trigger LAN SHARE V2.5 Final Build
+
+on:
+  push:
+    branches:
+      - build/lan-share-v24-fonts
+    paths:
+      - '.github/workflows/trigger-lan-share-v25-final.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch final V2.5 workflow on latest branch head
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-lan-share-v25.yml',
+              ref: 'build/lan-share-v24-fonts'
+            });
+            core.info('Dispatched LAN SHARE V2.5 final build on latest branch HEAD.');
