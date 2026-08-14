@@ -1,0 +1,141 @@
+name: Build LAN File Transfer Windows Hotfix
+
+on:
+  push:
+    branches:
+      - build/lan-file-transfer-v1
+    paths:
+      - '.github/workflows/build-lan-file-transfer-windows-hotfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-hotfix:
+    name: Windows installer hotfix
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct verified source archive
+        shell: pwsh
+        run: |
+          $parts = @(
+            'lan-build/minsrc_v4/part00.b64',
+            'lan-build/minsrc_v4/part01.b64',
+            'lan-build/minsrc_v4/part02.b64',
+            'lan-build/minsrc_v4/part03.b64'
+          )
+          $b64 = ($parts | ForEach-Object { Get-Content $_ -Raw }) -join ''
+          [IO.File]::WriteAllBytes('lan-min.tar.gz', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'lan-min.tar.gz' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '377f0c46f6c1ba7a18fbf41ac0b08d565f3b84d337e3fdea31b33fba0a1c17af') { throw "Source SHA256 mismatch: $hash" }
+          New-Item -ItemType Directory -Force -Path buildsrc | Out-Null
+          tar -xzf lan-min.tar.gz -C buildsrc
+          if (!(Test-Path 'buildsrc/lan_file_transfer_v1/pc/app.py')) { throw 'PC source extraction failed' }
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+
+      - name: Install dependencies
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Add PyInstaller windowed stdio runtime hook
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          @'
+          import os
+          import sys
+
+          # PyInstaller --windowed sets stdout/stderr to None on Windows.
+          # Uvicorn's default formatter calls sys.stdout.isatty(), so provide
+          # harmless writable streams before application imports execute.
+          if sys.stdout is None:
+              sys.stdout = open(os.devnull, "w", encoding="utf-8")
+          if sys.stderr is None:
+              sys.stderr = open(os.devnull, "w", encoding="utf-8")
+          '@ | Set-Content -Encoding UTF8 pyi_rth_windowed_stdio.py
+
+      - name: Syntax check PC source and runtime hook
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m compileall -q .
+          python -m py_compile pyi_rth_windowed_stdio.py
+
+      - name: Build standalone Windows EXE
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --runtime-hook pyi_rth_windowed_stdio.py --name LANFileTransfer app.py --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all websockets
+          if (!(Test-Path 'dist/LANFileTransfer.exe')) { throw 'PyInstaller output missing' }
+
+      - name: Startup smoke test
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath '.\dist\LANFileTransfer.exe' -PassThru
+          Start-Sleep -Seconds 7
+          if ($p.HasExited) {
+            throw "LANFileTransfer exited during startup smoke test with code $($p.ExitCode)"
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host 'Startup smoke test passed: app stayed alive for 7 seconds.'
+
+      - name: Build Windows Setup
+        working-directory: buildsrc/lan_file_transfer_v1/pc
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppId={{A783A5C0-2B74-4B25-98A8-8A25512E91F5}
+          AppName=LAN File Transfer
+          AppVersion=1.0.1
+          AppPublisher=LAN File Transfer
+          DefaultDirName={autopf}\LAN File Transfer
+          DefaultGroupName=LAN File Transfer
+          DisableProgramGroupPage=yes
+          OutputDir=installer-output
+          OutputBaseFilename=LANFileTransfer-Windows-Setup-v1.0.1
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=lowest
+          UninstallDisplayIcon={app}\LANFileTransfer.exe
+
+          [Files]
+          Source: "dist\LANFileTransfer.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+          [Icons]
+          Name: "{autoprograms}\LAN File Transfer"; Filename: "{app}\LANFileTransfer.exe"
+          Name: "{autodesktop}\LAN File Transfer"; Filename: "{app}\LANFileTransfer.exe"; Tasks: desktopicon
+
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
+
+          [Run]
+          Filename: "{app}\LANFileTransfer.exe"; Description: "Launch LAN File Transfer"; Flags: nowait postinstall skipifsilent
+          '@ | Set-Content -Encoding UTF8 installer.iss
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { throw 'Inno Setup compiler not found' }
+          & $iscc installer.iss
+          if (!(Test-Path 'installer-output/LANFileTransfer-Windows-Setup-v1.0.1.exe')) { throw 'Installer output missing' }
+
+      - name: Upload fixed Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LANFileTransfer-Windows-v1.0.1-Hotfix
+          path: buildsrc/lan_file_transfer_v1/pc/installer-output/LANFileTransfer-Windows-Setup-v1.0.1.exe
+          if-no-files-found: error
