@@ -36,8 +36,10 @@ jobs:
           python lan-build/v25-clean/patch_qr_compat.py
           python lan-build/v25-qr-pin/patch_qr_pin.py "$SRC"
           python lan-build/v25-clean/patch_android_compile_fix.py
+          python lan-build/v25-clean/patch_zxing_qr_constant.py
           F="$SRC/android/app/src/main/java/ir/local/lantransfer/MainActivity.java"
           grep -q 'scanConnectionQr' "$F"
+          grep -q 'IntentIntegrator.QR_CODE' "$F"
           grep -q 'android.permission.CAMERA' "$SRC/android/app/src/main/AndroidManifest.xml"
           grep -q 'zxing-android-embedded:4.3.0' "$SRC/android/app/build.gradle.kts"
           grep -q 'versionName = "2.5.0"' "$SRC/android/app/build.gradle.kts"
