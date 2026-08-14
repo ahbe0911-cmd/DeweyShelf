@@ -47,11 +47,13 @@ jobs:
 
           sys.path.insert(0, 'src')
           import tkinter
+          import customtkinter
           from PIL import Image
           from converter import ConvertOptions, convert_image_to_jpg, HEIF_AVAILABLE
 
           assert HEIF_AVAILABLE, 'pillow-heif plugin is unavailable'
           assert tkinter.TclVersion > 0
+          assert customtkinter.__version__
           options = ConvertOptions(target_kb=488, min_quality=30, max_quality=95)
 
           with tempfile.TemporaryDirectory() as temp:
@@ -78,7 +80,6 @@ jobs:
               r3 = convert_image_to_jpg(heic_file, out, options)
               assert r3.ok and r3.output_bytes <= 488 * 1024
 
-              # Parallel collision test: same basename in separate directories.
               inputs = []
               for i in range(4):
                   d = temp / ('set%d' % i)
@@ -96,43 +97,44 @@ jobs:
               print('Large JPG Turbo compression OK:', r2.output_bytes, 'Q', r2.quality)
               print('HEIC conversion OK:', r3.output_bytes, 'Q', r3.quality)
               print('Parallel safety OK: 4 concurrent files')
+              print('CustomTkinter:', customtkinter.__version__)
           '@ | Set-Content -Encoding UTF8 _ci_test.py
           python _ci_test.py
 
-      - name: Syntax check UI
+      - name: Syntax check commercial UI
         run: |
           python -m py_compile src/app.py src/converter.py
 
-      - name: Build V3 Turbo single-file EXE
+      - name: Build V4 Commercial single-file EXE
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v3-Turbo" --collect-all pillow_heif --hidden-import pillow_heif --hidden-import tkinter src/app.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "HEIC-Pro-Converter-v4-Commercial" --collect-all pillow_heif --collect-all customtkinter --hidden-import pillow_heif --hidden-import tkinter src/app.py
 
       - name: Verify EXE file
         shell: pwsh
         run: |
-          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v3-Turbo.exe')) { throw 'EXE was not created' }
-          $file = Get-Item 'dist/HEIC-Pro-Converter-v3-Turbo.exe'
+          if (-not (Test-Path 'dist/HEIC-Pro-Converter-v4-Commercial.exe')) { throw 'EXE was not created' }
+          $file = Get-Item 'dist/HEIC-Pro-Converter-v4-Commercial.exe'
           if ($file.Length -lt 1MB) { throw 'EXE size is unexpectedly small' }
           Write-Host "Built: $($file.FullName)"
           Write-Host "Size: $([math]::Round($file.Length / 1MB, 2)) MB"
-          Get-FileHash 'dist/HEIC-Pro-Converter-v3-Turbo.exe' -Algorithm SHA256
+          Get-FileHash 'dist/HEIC-Pro-Converter-v4-Commercial.exe' -Algorithm SHA256
 
       - name: Runtime smoke test EXE
         shell: pwsh
         run: |
-          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v3-Turbo.exe').Path
+          $exe = (Resolve-Path 'dist/HEIC-Pro-Converter-v4-Commercial.exe').Path
           $process = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 8
+          Start-Sleep -Seconds 10
           if ($process.HasExited) {
             throw "EXE exited during startup. Exit code: $($process.ExitCode)"
           }
           Stop-Process -Id $process.Id -Force
-          Write-Host 'Runtime smoke test OK: V3 GUI stayed alive.'
+          Write-Host 'Runtime smoke test OK: V4 Commercial GUI stayed alive.'
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
-          name: HEIC-Pro-Converter-v3-Turbo-Windows
-          path: heic-pro-converter/dist/HEIC-Pro-Converter-v3-Turbo.exe
+          name: HEIC-Pro-Converter-v4-Commercial-Windows
+          path: heic-pro-converter/dist/HEIC-Pro-Converter-v4-Commercial.exe
           if-no-files-found: error
           retention-days: 30
