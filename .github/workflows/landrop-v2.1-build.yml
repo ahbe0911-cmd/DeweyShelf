@@ -6,6 +6,7 @@ on:
       - landrop-v2.1-build
     paths:
       - 'landrop-build/source/**'
+      - 'landrop-build/patches/**'
       - '.github/workflows/landrop-v2.1-build.yml'
   workflow_dispatch:
 
@@ -19,13 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Rebuild source ZIP
+      - name: Rebuild source tree
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64
+          import base64, zipfile
           paths = [
               'landrop-build/source/part-00.b64',
               'landrop-build/source/part-01.b64',
@@ -39,12 +40,22 @@ jobs:
           ]
           encoded = ''.join(Path(p).read_text(encoding='utf-8').strip() for p in paths)
           data = base64.b64decode(encoded, validate=True)
-          Path('landrop-v2.1.zip').write_bytes(data)
+          archive = Path('landrop-v2.1.zip')
+          archive.write_bytes(data)
           print('source zip bytes:', len(data))
+          bad = 'android/app/src/main/java/ir/local/lantransfer/NotificationHelper.java'
+          out = Path('src')
+          out.mkdir(exist_ok=True)
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  if info.filename == bad:
+                      continue
+                  z.extract(info, out)
           PY
-          unzip -tq landrop-v2.1.zip
-          mkdir -p src
-          unzip -q landrop-v2.1.zip -d src
+          mkdir -p src/android/app/src/main/java/ir/local/lantransfer
+          cp landrop-build/patches/NotificationHelper.java src/android/app/src/main/java/ir/local/lantransfer/NotificationHelper.java
+          test -f src/android/app/src/main/java/ir/local/lantransfer/MainActivity.java
+          test -f src/android/app/src/main/java/ir/local/lantransfer/NotificationHelper.java
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
