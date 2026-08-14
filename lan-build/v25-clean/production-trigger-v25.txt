@@ -1,0 +1,8 @@
+LAN SHARE V2.5 production rebuild trigger
+- responsive Android V2.3 base
+- LAN Drop style
+- Far Nazanin / Far Titr bundled fonts
+- dynamic QR pairing
+- custom persisted PIN
+- Android compile guard final
+- Windows onedir frozen runtime smoke test
