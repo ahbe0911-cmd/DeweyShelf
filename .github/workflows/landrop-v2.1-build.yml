@@ -29,8 +29,9 @@ jobs:
             landrop-build/source/part-02.b64 \
             landrop-build/source/part-03.b64 \
             landrop-build/source/part-04.b64 \
-            landrop-build/source/part-05a.b64 \
-            landrop-build/source/part-05b.b64 \
+            landrop-build/source/part-05c0.b64 \
+            landrop-build/source/part-05c1.b64 \
+            landrop-build/source/part-05c2.b64 \
             landrop-build/source/part-06.b64 \
             | base64 -d > landrop-v2.1.zip
           unzip -tq landrop-v2.1.zip
@@ -95,8 +96,9 @@ jobs:
             "landrop-build/source/part-02.b64",
             "landrop-build/source/part-03.b64",
             "landrop-build/source/part-04.b64",
-            "landrop-build/source/part-05a.b64",
-            "landrop-build/source/part-05b.b64",
+            "landrop-build/source/part-05c0.b64",
+            "landrop-build/source/part-05c1.b64",
+            "landrop-build/source/part-05c2.b64",
             "landrop-build/source/part-06.b64"
           )
           $b64 = ($paths | ForEach-Object { Get-Content $_ -Raw }) -join ""
