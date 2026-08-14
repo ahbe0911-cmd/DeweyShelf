@@ -1,0 +1,4 @@
+PySide6>=6.8,<7
+Pillow>=11,<13
+pillow-heif>=1.0,<2
+PyInstaller>=6.10,<7
