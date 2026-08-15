@@ -1,0 +1,66 @@
+name: Build LAN Drop Windows 8.1 x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - lan-drop-v2.1-build
+    paths:
+      - 'win81/**'
+      - '.github/workflows/build-landrop-win81.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.20.14
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+
+      - name: Restore source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-win81
+          base64 -d win81/source.tar.xz.b64 > build-win81/source.tar.xz
+          tar -xJf build-win81/source.tar.xz -C build-win81
+          rm build-win81/source.tar.xz
+
+      - name: Build Windows 8.1 x64
+        shell: bash
+        working-directory: build-win81
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go version
+          go build -trimpath -ldflags="-H=windowsgui" -o LAN-Drop-Windows81-x64.exe .
+          go version -m LAN-Drop-Windows81-x64.exe | tee build-info.txt
+          grep -q 'go1.20.14' build-info.txt
+          file LAN-Drop-Windows81-x64.exe | tee pe-info.txt
+          grep -q 'PE32+ executable' pe-info.txt
+          grep -q 'x86-64' pe-info.txt
+          sha256sum LAN-Drop-Windows81-x64.exe > LAN-Drop-Windows81-x64.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAN-Drop-Windows81-x64
+          path: |
+            build-win81/LAN-Drop-Windows81-x64.exe
+            build-win81/LAN-Drop-Windows81-x64.sha256
+            build-win81/build-info.txt
+            build-win81/pe-info.txt
+          if-no-files-found: error
+          retention-days: 14
