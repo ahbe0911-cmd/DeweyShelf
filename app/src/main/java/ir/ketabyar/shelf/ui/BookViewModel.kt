@@ -40,6 +40,7 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
     fun change(transform: (BookFormState) -> BookFormState) { _form.update(transform) }
     fun setSeparator(value: String) = viewModelScope.launch { settings.setSeparator(value) }
     fun confirmLiterature(value: Boolean) = viewModelScope.launch { settings.confirmLiterature(value) }
+    fun clearSavedMessage() { _form.update { it.copy(savedMessage = null) } }
     fun save() = viewModelScope.launch {
         val f = _form.value; val errors = BookValidator.validate(f.code(), f.title, f.registration, rules.value).toMutableMap()
         if (repository.isDuplicate(f.registration)) errors["registrationNumber"] = "این شماره ثبت قبلاً ذخیره شده است"
@@ -48,7 +49,15 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
         val ordered = books.value + f.toEntity()
         val sorted = ordered.sortedWith(compareByCode(rules.value)); val index = sorted.indexOfFirst { it.registrationNumber == f.registration }
         val prev = sorted.getOrNull(index - 1)?.title; val next = sorted.getOrNull(index + 1)?.title
-        _form.update { it.copy(savedMessage = "کتاب ذخیره شد", previousTitle = prev, nextTitle = next) }
+        var nextRegistration: String
+        do { nextRegistration = Random.nextInt(100000, 999999).toString() } while (repository.isDuplicate(nextRegistration))
+        _form.value = BookFormState(
+            section = f.section,
+            registration = nextRegistration,
+            savedMessage = "کتاب ذخیره شد",
+            previousTitle = prev,
+            nextTitle = next
+        )
     }
 
     private fun compareByCode(rules: LibraryRules) = Comparator<BookEntity> { a, b -> ShelfCodeComparator(rules).compare(a.code(), b.code()) }
