@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import ir.ketabyar.shelf.core.*
+import ir.ketabyar.shelf.data.BookEntity
 
 private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 
@@ -46,7 +47,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
         when (screen) {
             Screen.HOME -> HomeScreen(onSection = { vm.start(it); screen = if (it == BookSection.GENERAL) Screen.GENERAL else Screen.LITERATURE }, onList = { screen = Screen.LIST }, onSettings = { screen = Screen.SETTINGS })
             Screen.GENERAL, Screen.LITERATURE -> AddBookScreen(vm, onBack = { screen = Screen.HOME })
-            Screen.LIST -> BookListScreen(vm, onBack = { screen = Screen.HOME })
+            Screen.LIST -> BookListScreen(vm, onBack = { screen = Screen.HOME },onEdit={book->vm.edit(book);screen=if(book.section==BookSection.GENERAL)Screen.GENERAL else Screen.LITERATURE})
             Screen.SETTINGS -> SettingsScreen(vm, onBack = { screen = Screen.HOME })
         }
     }
@@ -60,7 +61,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) { Text("انتخاب بخش کتابخانه",fontSize=21.sp,fontWeight=FontWeight.Black,color=DeweyTealDark); Surface(color=DeweyYellow,shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp)){Text("آفلاین",Modifier.padding(horizontal=12.dp,vertical=5.dp),fontWeight=FontWeight.Bold,color=DeweyTealDark)} }
                 ShelfChoice("کتاب‌های عمومی","رده‌های عمومی دیویی",DeweyTeal,false){onSection(BookSection.GENERAL)}
                 ShelfChoice("کتاب‌های ادبیات","ساختار اختصاصی رده 800",Literature,true){onSection(BookSection.LITERATURE)}
-                Button(onClick=onList,colors=ButtonDefaults.buttonColors(containerColor=DeweyTealDark),modifier=Modifier.fillMaxWidth().height(58.dp)){Icon(Icons.Outlined.ViewList,null);Spacer(Modifier.width(8.dp));Text("مشاهده چیدمان واقعی قفسه",fontSize=16.sp,fontWeight=FontWeight.Bold)}
+                Button(onClick=onList,colors=ButtonDefaults.buttonColors(containerColor=DeweyTealDark),modifier=Modifier.fillMaxWidth().height(58.dp)){Icon(Icons.Outlined.EditNote,null);Spacer(Modifier.width(8.dp));Text("مدیریت کتاب‌ها",fontSize=16.sp,fontWeight=FontWeight.Bold)}
                 TextButton(onClick=onSettings,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Settings,null);Spacer(Modifier.width(8.dp));Text("تنظیم قواعد و الگوی برچسب")}
             }
         }
@@ -99,7 +100,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     LaunchedEffect(f.savedMessage) { if (f.savedMessage != null) { kotlinx.coroutines.delay(1350); vm.clearSavedMessage() } }
     Scaffold(
         topBar = { TopAppBar(title = { Text(if (f.section == BookSection.GENERAL) "افزودن کتاب عمومی" else "افزودن کتاب ادبیات") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowForward, "بازگشت") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = if (f.section == BookSection.GENERAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary, titleContentColor = Color.White, navigationIconContentColor = Color.White)) },
-        bottomBar = { Surface(shadowElevation = 10.dp, modifier=Modifier.navigationBarsPadding()) { Button(onClick = vm::save, modifier = Modifier.padding(horizontal=16.dp,vertical=10.dp).fillMaxWidth().height(54.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("ذخیره کتاب", fontSize = 17.sp, fontWeight=FontWeight.Bold) } } }
+        bottomBar = { Surface(shadowElevation = 10.dp, modifier=Modifier.navigationBarsPadding()) { Button(onClick = vm::save, modifier = Modifier.padding(horizontal=16.dp,vertical=10.dp).fillMaxWidth().height(54.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text(if(f.editingId==null)"ذخیره کتاب" else "ذخیره ویرایش", fontSize = 17.sp, fontWeight=FontWeight.Bold) } } }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { EditableSpine(f, vm, rules) }
@@ -150,7 +151,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                         }
                         Surface(color=Color(0xFFFFFDF7),shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp),border=BorderStroke(1.dp,Color(0xFFD8D1C2)),shadowElevation=4.dp,modifier=Modifier.width(88.dp).heightIn(min=208.dp)){
                             Column(Modifier.fillMaxSize().padding(horizontal=5.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
-                                Text("رده‌بندی",fontSize=9.sp,color=Color.Gray)
+                                Text("عطف",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Color.Gray)
                                 Spacer(Modifier.height(8.dp))
                                 Text(classLine1.ifBlank{"—"},color=Color(0xFF202020),fontSize=20.sp,lineHeight=25.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                                 if(classLine2.isNotBlank())Text(classLine2,color=Color(0xFF202020),fontSize=19.sp,lineHeight=24.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
@@ -158,7 +159,8 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr){
                                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                                         Text(PersianNormalizer.normalize(f.authorLetter).ifBlank{"—"},modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
-                                        Text(PersianNormalizer.digitsOnly(f.authorNumber).ifBlank{"—"},modifier=Modifier.weight(1.35f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
+                                        val authorDigits=PersianNormalizer.digitsOnly(f.authorNumber)
+                                        Text(authorDigits.ifBlank{"—"},modifier=Modifier.weight(1.7f),maxLines=1,softWrap=false,textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=when{authorDigits.length<=3->16.sp;authorDigits.length==4->14.sp;authorDigits.length==5->12.sp;else->10.sp},fontWeight=FontWeight.Black)
                                         Text((PersianNormalizer.normalize(f.workMark)+PersianNormalizer.normalize(f.titleLetter)).ifBlank{"—"},modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
                                     }
                                 }
@@ -219,14 +221,25 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 
 @Composable private fun SectionTitle(text: String) { Text(text, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
 
-@Composable private fun BookListScreen(vm: BookViewModel, onBack: () -> Unit) {
-    val books by vm.books.collectAsState(); var query by remember { mutableStateOf("") }; var section by remember { mutableStateOf(BookSection.GENERAL) }
-    val shown = books.filter { it.section == section && (query.isBlank() || listOf(it.title, it.authorLastName, it.registrationNumber, it.mainClass).any { v -> PersianNormalizer.normalize(v).contains(PersianNormalizer.normalize(query)) }) }
-    Scaffold(topBar = { TopAppBar(title = { Text("نمای واقعی قفسه") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowForward, "بازگشت") } }) }) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp)) {
-            OutlinedTextField(query, { query = it }, label = { Text("جست‌وجوی عنوان، نویسنده، ثبت یا رده") }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(section == BookSection.GENERAL, { section = BookSection.GENERAL }, { Text("عمومی") }); FilterChip(section == BookSection.LITERATURE, { section = BookSection.LITERATURE }, { Text("ادبیات") }) }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(shown) { b -> val index = shown.indexOf(b); Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Text("${index + 1}", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(b.title, fontWeight = FontWeight.Bold); Text("${b.shelfName} • ردیف ${b.rowNumber ?: "—"}", color = Color.Gray) }; Text(LabelFormatter.format(ir.ketabyar.shelf.core.ShelfCode(b.section,b.mainClass,b.classDecimal,b.languageCode,b.literaturePeriod,b.authorLetter,b.authorNumber,b.workMark,b.titleLetter,b.volume,b.edition,b.year), LibraryRules()), fontWeight = FontWeight.Bold) } } } }
+@Composable private fun BookListScreen(vm: BookViewModel, onBack: () -> Unit,onEdit:(BookEntity)->Unit) {
+    val books by vm.books.collectAsState();var query by remember{mutableStateOf("")};var section by remember{mutableStateOf(BookSection.GENERAL)};var deleteTarget by remember{mutableStateOf<BookEntity?>(null)};var confirmDeleteAll by remember{mutableStateOf(false)}
+    val shown=books.filter{it.section==section&&(query.isBlank()||listOf(it.registrationNumber,it.mainClass,it.classDecimal,it.languageCode,it.authorNumber).any{v->PersianNormalizer.normalize(v).contains(PersianNormalizer.normalize(query))})}
+    Scaffold(topBar={TopAppBar(title={Text("مدیریت کتاب‌ها")},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Outlined.ArrowForward,"بازگشت")}},actions={IconButton(onClick={confirmDeleteAll=true},enabled=books.isNotEmpty()){Icon(Icons.Outlined.DeleteSweep,"حذف همه",tint=if(books.isEmpty())Color.Gray else MaterialTheme.colorScheme.error)}})}){padding->
+        Column(Modifier.padding(padding).padding(horizontal=14.dp)){
+            OutlinedTextField(query,{query=it},label={Text("جست‌وجوی شماره ثبت یا رده")},leadingIcon={Icon(Icons.Outlined.Search,null)},singleLine=true,modifier=Modifier.fillMaxWidth())
+            Row(Modifier.padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(section==BookSection.GENERAL,{section=BookSection.GENERAL},{Text("عمومی")});FilterChip(section==BookSection.LITERATURE,{section=BookSection.LITERATURE},{Text("ادبیات")})}
+            if(shown.isEmpty())Box(Modifier.fillMaxWidth().weight(1f),contentAlignment=Alignment.Center){Text("کتابی در این بخش ثبت نشده است",color=Color.Gray)}else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(7.dp),contentPadding=PaddingValues(bottom=14.dp)){items(shown,key={it.id}){b->
+                Card(Modifier.fillMaxWidth()){Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+                    Surface(color=Color(0xFFE3F2F1),shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp)){Text(LabelFormatter.format(b.code(),LibraryRules()),Modifier.padding(horizontal=9.dp,vertical=7.dp),fontSize=13.sp,lineHeight=17.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
+                    Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("شماره ثبت ${b.registrationNumber}",fontWeight=FontWeight.Bold);Text(if(b.section==BookSection.GENERAL)"کتاب عمومی" else "کتاب ادبیات",fontSize=11.sp,color=Color.Gray)}
+                    IconButton(onClick={onEdit(b)}){Icon(Icons.Outlined.Edit,"ویرایش",tint=DeweyTeal)}
+                    IconButton(onClick={deleteTarget=b}){Icon(Icons.Outlined.Delete,"حذف",tint=MaterialTheme.colorScheme.error)}
+                }}
+            }}
         }
     }
+    deleteTarget?.let{book->AlertDialog(onDismissRequest={deleteTarget=null},title={Text("حذف کتاب؟")},text={Text("کتاب با شماره ثبت ${book.registrationNumber} حذف شود؟")},confirmButton={Button(onClick={vm.delete(book);deleteTarget=null},colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.error)){Text("حذف")}},dismissButton={TextButton(onClick={deleteTarget=null}){Text("انصراف")}})}
+    if(confirmDeleteAll)AlertDialog(onDismissRequest={confirmDeleteAll=false},title={Text("حذف همه کتاب‌ها؟")},text={Text("تمام کتاب‌های عمومی و ادبیات حذف می‌شوند. این عملیات قابل بازگشت نیست.")},confirmButton={Button(onClick={vm.deleteAll();confirmDeleteAll=false},colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.error)){Text("حذف همه")}},dismissButton={TextButton(onClick={confirmDeleteAll=false}){Text("انصراف")}})
 }
+
+private fun BookEntity.code()=ShelfCode(section,mainClass,classDecimal,languageCode,literaturePeriod,authorLetter,authorNumber,workMark,titleLetter,volume,edition,year)
