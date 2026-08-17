@@ -2,7 +2,6 @@ package ir.ketabyar.shelf.core
 
 object BookValidator {
     fun validate(code: ShelfCode, title: String, registrationNumber: String, rules: LibraryRules): Map<String, String> = buildMap {
-        if (title.isBlank()) put("title", "عنوان کتاب الزامی است")
         if (registrationNumber.isBlank()) put("registrationNumber", "شماره ثبت الزامی است")
         if (code.section == BookSection.GENERAL) {
             val main = PersianNormalizer.digitsOnly(code.mainClass)
@@ -18,4 +17,3 @@ object BookValidator {
         if (year.isNotEmpty() && (year.length != 4 || year.toInt() !in 1200..2200)) put("year", "سال انتشار معتبر نیست")
     }
 }
-
