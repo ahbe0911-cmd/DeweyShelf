@@ -11,6 +11,7 @@ interface BookDao {
     @Insert suspend fun insert(book: BookEntity): Long
     @Update suspend fun update(book: BookEntity)
     @Delete suspend fun delete(book: BookEntity)
+    @Query("DELETE FROM books") suspend fun deleteAll()
     @Insert suspend fun audit(entry: AuditEntity)
     @Query("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 1") suspend fun lastAudit(): AuditEntity?
 }
@@ -23,4 +24,3 @@ class Converters {
     @TypeConverter fun section(value: ir.ketabyar.shelf.core.BookSection) = value.name
     @TypeConverter fun section(value: String) = ir.ketabyar.shelf.core.BookSection.valueOf(value)
 }
-
