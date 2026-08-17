@@ -89,24 +89,17 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     val f by vm.form.collectAsState(); val rules by vm.rules.collectAsState()
     Scaffold(
         topBar = { TopAppBar(title = { Text(if (f.section == BookSection.GENERAL) "افزودن کتاب عمومی" else "افزودن کتاب ادبیات") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowForward, "بازگشت") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = if (f.section == BookSection.GENERAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary, titleContentColor = Color.White, navigationIconContentColor = Color.White)) },
-        bottomBar = { Surface(shadowElevation = 10.dp) { Button(onClick = vm::save, modifier = Modifier.padding(16.dp).fillMaxWidth().height(58.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("بررسی و ذخیره کتاب", fontSize = 18.sp) } } }
+        bottomBar = { Surface(shadowElevation = 10.dp, modifier=Modifier.navigationBarsPadding()) { Button(onClick = vm::save, modifier = Modifier.padding(horizontal=16.dp,vertical=10.dp).fillMaxWidth().height(54.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("ذخیره کتاب", fontSize = 17.sp, fontWeight=FontWeight.Bold) } } }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { LabelPreview(LabelFormatter.format(f.code(), rules), f.section) }
             if (f.section == BookSection.GENERAL) generalFields(f, vm) else literatureFields(f, vm)
-            item { VoiceField("عنوان کتاب *", f.title, f.errors["title"]) { vm.change { s -> s.copy(title = it, errors = s.errors - "title") } } }
             item { VoiceField("نام نویسنده", f.authorFirst) { vm.change { s -> s.copy(authorFirst = it) } } }
             item { VoiceField("نام خانوادگی نویسنده", f.authorLast) { vm.change { s -> s.copy(authorLast = it) } } }
             item { VoiceField("موضوع کتاب", f.subject) { vm.change { s -> s.copy(subject = it) } } }
             item { VoiceField("شماره ثبت کتابخانه *", f.registration, f.errors["registrationNumber"]) { vm.change { s -> s.copy(registration = it, errors = s.errors - "registrationNumber") } } }
-            item { VoiceField("جلد", f.volume) { vm.change { s -> s.copy(volume = it) } } }
-            item { VoiceField("نسخه", f.edition) { vm.change { s -> s.copy(edition = it) } } }
-            item { VoiceField("سال انتشار", f.year, f.errors["year"]) { vm.change { s -> s.copy(year = it, errors = s.errors - "year") } } }
-            item { VoiceField("نام قفسه", f.shelf) { vm.change { s -> s.copy(shelf = it) } } }
-            item { VoiceField("شماره ردیف", f.row) { vm.change { s -> s.copy(row = it) } } }
-            item { VoiceField("توضیحات اختیاری", f.notes, singleLine = false) { vm.change { s -> s.copy(notes = it) } } }
             f.errors["literaturePattern"]?.let { item { AssistChip(onClick = {}, label = { Text(it) }, leadingIcon = { Icon(Icons.Outlined.Warning, null) }) } }
-            f.savedMessage?.let { item { PlacementShelf(f.previousTitle, f.title, f.nextTitle, LabelFormatter.format(f.code(), rules)) } }
+            f.savedMessage?.let { item { SuccessMessage(); PlacementShelf(f.previousTitle, "ثبت ${f.registration}", f.nextTitle, LabelFormatter.format(f.code(), rules)) } }
             item { Spacer(Modifier.height(10.dp)) }
         }
     }
@@ -148,11 +141,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.literatureFields(f: B
     var pending by remember { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result -> pending = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() }
     Column {
-        OutlinedTextField(value, onChange, label = { Text(label) }, isError = error != null, singleLine = singleLine, minLines = if (singleLine) 1 else 3, modifier = Modifier.fillMaxWidth(), trailingIcon = { IconButton(onClick = { launcher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")) }) { Icon(Icons.Outlined.Mic, "ورود صوتی") } })
+        OutlinedTextField(value, onChange, label = { Text(label,fontSize=13.sp) }, textStyle=MaterialTheme.typography.bodyLarge, isError = error != null, singleLine = singleLine, minLines = if (singleLine) 1 else 2, modifier = Modifier.fillMaxWidth().then(if(singleLine)Modifier.height(62.dp) else Modifier), trailingIcon = { IconButton(onClick = { launcher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")) },modifier=Modifier.size(42.dp)) { Icon(Icons.Outlined.Mic, "ورود صوتی",modifier=Modifier.size(22.dp)) } })
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 3.dp)) }
         pending?.let { text -> AlertDialog(onDismissRequest = { pending = null }, title = { Text("تأیید متن تشخیص‌داده‌شده") }, text = { Text(text) }, confirmButton = { TextButton(onClick = { onChange(text); pending = null }) { Text("تأیید") } }, dismissButton = { TextButton(onClick = { pending = null }) { Text("رد") } }) }
     }
 }
+
+@Composable private fun SuccessMessage(){Surface(color=Color(0xFF158A5B),shape=androidx.compose.foundation.shape.RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.Center){Icon(Icons.Outlined.CheckCircle,"ذخیره شد",tint=Color.White);Spacer(Modifier.width(8.dp));Text("کتاب با موفقیت ذخیره شد",color=Color.White,fontSize=17.sp,fontWeight=FontWeight.Black)}}}
 
 @Composable private fun SectionTitle(text: String) { Text(text, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
 
