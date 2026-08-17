@@ -11,6 +11,7 @@ import kotlin.random.Random
 import javax.inject.Inject
 
 data class BookFormState(
+    val editingId: Long? = null,
     val section: BookSection = BookSection.GENERAL,
     val title: String = "", val authorFirst: String = "", val authorLast: String = "", val subject: String = "", val registration: String = "",
     val mainClass: String = "", val classDecimal: String = "", val language: String = "", val languageCode: String = "8فا", val literaturePeriod: String = "32", val workType: String = "",
@@ -38,14 +39,19 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
         }
     }
     fun change(transform: (BookFormState) -> BookFormState) { _form.update(transform) }
+    fun edit(book: BookEntity) {
+        _form.value = BookFormState(editingId=book.id,section=book.section,title=book.title,authorFirst=book.authorFirstName,authorLast=book.authorLastName,subject=book.subject,registration=book.registrationNumber,mainClass=book.mainClass,classDecimal=book.classDecimal,language=book.language,languageCode=book.languageCode,literaturePeriod=book.literaturePeriod,workType=book.workType,authorLetter=book.authorLetter,authorNumber=book.authorNumber,workMark=book.workMark,titleLetter=book.titleLetter,volume=book.volume,edition=book.edition,year=book.year,notes=book.notes,shelf=book.shelfName,row=book.rowNumber?.toString().orEmpty())
+    }
+    fun delete(book: BookEntity) = viewModelScope.launch { repository.delete(book) }
+    fun deleteAll() = viewModelScope.launch { repository.deleteAll() }
     fun setSeparator(value: String) = viewModelScope.launch { settings.setSeparator(value) }
     fun confirmLiterature(value: Boolean) = viewModelScope.launch { settings.confirmLiterature(value) }
     fun clearSavedMessage() { _form.update { it.copy(savedMessage = null) } }
     fun save() = viewModelScope.launch {
         val f = _form.value; val errors = BookValidator.validate(f.code(), f.title, f.registration, rules.value).toMutableMap()
-        if (repository.isDuplicate(f.registration)) errors["registrationNumber"] = "این شماره ثبت قبلاً ذخیره شده است"
+        if (repository.isDuplicate(f.registration, f.editingId)) errors["registrationNumber"] = "این شماره ثبت قبلاً ذخیره شده است"
         if (errors.isNotEmpty()) { _form.update { it.copy(errors = errors) }; return@launch }
-        repository.add(f.toEntity())
+        if(f.editingId==null) repository.add(f.toEntity()) else repository.update(f.toEntity().copy(id=f.editingId))
         val ordered = books.value + f.toEntity()
         val sorted = ordered.sortedWith(compareByCode(rules.value)); val index = sorted.indexOfFirst { it.registrationNumber == f.registration }
         val prev = sorted.getOrNull(index - 1)?.title; val next = sorted.getOrNull(index + 1)?.title
@@ -54,7 +60,7 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
         _form.value = BookFormState(
             section = f.section,
             registration = nextRegistration,
-            savedMessage = "کتاب ذخیره شد",
+            savedMessage = if(f.editingId==null) "کتاب ذخیره شد" else "ویرایش ذخیره شد",
             previousTitle = prev,
             nextTitle = next
         )
