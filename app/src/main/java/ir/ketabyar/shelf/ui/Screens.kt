@@ -102,7 +102,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
         bottomBar = { Surface(shadowElevation = 10.dp, modifier=Modifier.navigationBarsPadding()) { Button(onClick = vm::save, modifier = Modifier.padding(horizontal=16.dp,vertical=10.dp).fillMaxWidth().height(54.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("ذخیره کتاب", fontSize = 17.sp, fontWeight=FontWeight.Bold) } } }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { EditableSpine(f, vm, LabelFormatter.format(f.code(), rules)) }
+            item { EditableSpine(f, vm, rules) }
             f.errors["literaturePattern"]?.let { item { AssistChip(onClick = {}, label = { Text(it) }, leadingIcon = { Icon(Icons.Outlined.Warning, null) }) } }
             item { Spacer(Modifier.height(10.dp)) }
         }
@@ -110,8 +110,10 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     if(f.savedMessage!=null){Dialog(onDismissRequest={}){androidx.compose.animation.AnimatedVisibility(visible=true,enter=androidx.compose.animation.fadeIn()+androidx.compose.animation.scaleIn(initialScale=.72f)){Surface(color=Color(0xFF11875D),shape=androidx.compose.foundation.shape.RoundedCornerShape(28.dp),shadowElevation=18.dp){Column(Modifier.padding(horizontal=42.dp,vertical=30.dp),horizontalAlignment=Alignment.CenterHorizontally){Surface(color=Color.White.copy(.18f),shape=androidx.compose.foundation.shape.CircleShape){Icon(Icons.Outlined.CheckCircle,"ذخیره شد",tint=Color.White,modifier=Modifier.padding(12.dp).size(46.dp))};Spacer(Modifier.height(12.dp));Text("ذخیره شد",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Black);Text("کتاب با موفقیت ثبت شد",color=Color.White.copy(.85f),fontSize=13.sp)}}}}}
 }
 
-@Composable private fun EditableSpine(f:BookFormState,vm:BookViewModel,label:String){
+@Composable private fun EditableSpine(f:BookFormState,vm:BookViewModel,rules:LibraryRules){
     val accent=if(f.section==BookSection.GENERAL)DeweyTeal else Literature
+    val classLine1=if(f.section==BookSection.GENERAL)PersianNormalizer.normalize(f.mainClass) else PersianNormalizer.normalize(f.languageCode)
+    val classLine2=if(f.section==BookSection.GENERAL){if(f.classDecimal.isBlank())"" else rules.separator+PersianNormalizer.digitsOnly(f.classDecimal)}else rules.separator+PersianNormalizer.digitsOnly(f.literaturePeriod)
     val first=remember{FocusRequester()};val second=remember{FocusRequester()};val third=remember{FocusRequester()};val fourth=remember{FocusRequester()};val fifth=remember{FocusRequester()};val sixth=remember{FocusRequester()}
     Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
         Text("برچسب عطف کتاب",fontSize=19.sp,fontWeight=FontWeight.Black,color=accent)
@@ -150,7 +152,16 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                             Column(Modifier.fillMaxSize().padding(horizontal=5.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
                                 Text("رده‌بندی",fontSize=9.sp,color=Color.Gray)
                                 Spacer(Modifier.height(8.dp))
-                                Text(label.ifBlank{"—"},color=Color(0xFF202020),fontSize=18.sp,lineHeight=25.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                Text(classLine1.ifBlank{"—"},color=Color(0xFF202020),fontSize=20.sp,lineHeight=25.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                if(classLine2.isNotBlank())Text(classLine2,color=Color(0xFF202020),fontSize=19.sp,lineHeight=24.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                Spacer(Modifier.height(7.dp))
+                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr){
+                                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                                        Text(PersianNormalizer.normalize(f.authorLetter).ifBlank{"—"},modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
+                                        Text(PersianNormalizer.digitsOnly(f.authorNumber).ifBlank{"—"},modifier=Modifier.weight(1.35f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
+                                        Text((PersianNormalizer.normalize(f.workMark)+PersianNormalizer.normalize(f.titleLetter)).ifBlank{"—"},modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=Color(0xFF202020),fontSize=17.sp,fontWeight=FontWeight.Black)
+                                    }
+                                }
                             }
                         }
                     }
