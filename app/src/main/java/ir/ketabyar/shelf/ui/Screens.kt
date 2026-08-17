@@ -94,19 +94,72 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 
 @Composable private fun AddBookScreen(vm: BookViewModel, onBack: () -> Unit) {
     val f by vm.form.collectAsState(); val rules by vm.rules.collectAsState()
-    LaunchedEffect(f.savedMessage) { if (f.savedMessage != null) { kotlinx.coroutines.delay(1350); onBack() } }
+    LaunchedEffect(f.savedMessage) { if (f.savedMessage != null) { kotlinx.coroutines.delay(1350); vm.clearSavedMessage() } }
     Scaffold(
         topBar = { TopAppBar(title = { Text(if (f.section == BookSection.GENERAL) "افزودن کتاب عمومی" else "افزودن کتاب ادبیات") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowForward, "بازگشت") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = if (f.section == BookSection.GENERAL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary, titleContentColor = Color.White, navigationIconContentColor = Color.White)) },
         bottomBar = { Surface(shadowElevation = 10.dp, modifier=Modifier.navigationBarsPadding()) { Button(onClick = vm::save, modifier = Modifier.padding(horizontal=16.dp,vertical=10.dp).fillMaxWidth().height(54.dp)) { Icon(Icons.Outlined.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("ذخیره کتاب", fontSize = 17.sp, fontWeight=FontWeight.Bold) } } }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { LabelPreview(LabelFormatter.format(f.code(), rules), f.section) }
-            item { if (f.section == BookSection.GENERAL) GeneralSpineFields(f, vm) else LiteratureSpineFields(f, vm) }
+            item { EditableSpine(f, vm, LabelFormatter.format(f.code(), rules)) }
             f.errors["literaturePattern"]?.let { item { AssistChip(onClick = {}, label = { Text(it) }, leadingIcon = { Icon(Icons.Outlined.Warning, null) }) } }
             item { Spacer(Modifier.height(10.dp)) }
         }
     }
     if(f.savedMessage!=null){Dialog(onDismissRequest={}){androidx.compose.animation.AnimatedVisibility(visible=true,enter=androidx.compose.animation.fadeIn()+androidx.compose.animation.scaleIn(initialScale=.72f)){Surface(color=Color(0xFF11875D),shape=androidx.compose.foundation.shape.RoundedCornerShape(28.dp),shadowElevation=18.dp){Column(Modifier.padding(horizontal=42.dp,vertical=30.dp),horizontalAlignment=Alignment.CenterHorizontally){Surface(color=Color.White.copy(.18f),shape=androidx.compose.foundation.shape.CircleShape){Icon(Icons.Outlined.CheckCircle,"ذخیره شد",tint=Color.White,modifier=Modifier.padding(12.dp).size(46.dp))};Spacer(Modifier.height(12.dp));Text("ذخیره شد",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Black);Text("کتاب با موفقیت ثبت شد",color=Color.White.copy(.85f),fontSize=13.sp)}}}}}
+}
+
+@Composable private fun EditableSpine(f:BookFormState,vm:BookViewModel,label:String){
+    val accent=if(f.section==BookSection.GENERAL)DeweyTeal else Literature
+    val first=remember{FocusRequester()};val second=remember{FocusRequester()};val third=remember{FocusRequester()};val fourth=remember{FocusRequester()};val fifth=remember{FocusRequester()};val sixth=remember{FocusRequester()}
+    Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
+        Text("برچسب عطف کتاب",fontSize=20.sp,fontWeight=FontWeight.Black,color=accent)
+        Text("اطلاعات را مستقیماً روی عطف وارد کنید",fontSize=12.sp,color=Color.Gray)
+        Spacer(Modifier.height(10.dp))
+        Surface(
+            shape=androidx.compose.foundation.shape.RoundedCornerShape(topStart=22.dp,topEnd=22.dp,bottomStart=8.dp,bottomEnd=8.dp),
+            border=BorderStroke(1.dp,accent.copy(.35f)),shadowElevation=14.dp,
+            modifier=Modifier.widthIn(max=340.dp).fillMaxWidth().padding(horizontal=6.dp)
+        ){
+            Box(Modifier.background(Brush.horizontalGradient(listOf(accent.copy(.78f),accent,accent.copy(.9f))))){
+                Box(Modifier.fillMaxHeight().width(7.dp).align(Alignment.CenterStart).background(Color.White.copy(.16f)))
+                Column(Modifier.padding(horizontal=18.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                    Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.AutoStories,null,tint=DeweyYellow,modifier=Modifier.size(20.dp));Spacer(Modifier.width(7.dp));Text(if(f.section==BookSection.GENERAL)"کتاب عمومی" else "کتاب ادبیات",color=Color.White,fontWeight=FontWeight.Bold)}
+                    Spacer(Modifier.height(12.dp))
+                    Surface(color=Color(0xFFFFFDF7),shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),shadowElevation=4.dp,modifier=Modifier.fillMaxWidth()){
+                        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                            if(f.section==BookSection.GENERAL){
+                                SpineInput("رده اصلی",f.mainClass,f.errors["mainClass"],Modifier.focusRequester(first),ImeAction.Next,{second.requestFocus()},3){vm.change{s->s.copy(mainClass=it.take(3),errors=s.errors-"mainClass")}}
+                                SpineInput("اعشار رده",f.classDecimal,f.errors["classDecimal"],Modifier.focusRequester(second),ImeAction.Next,{third.requestFocus()}){vm.change{s->s.copy(classDecimal=it,errors=s.errors-"classDecimal")}}
+                            }else{
+                                SpineInput("کد زبان",f.languageCode,f.errors["languageCode"],Modifier.focusRequester(first),ImeAction.Next,{second.requestFocus()}){vm.change{s->s.copy(languageCode=it,errors=s.errors-"languageCode")}}
+                                SpineInput("دوره ادبی",f.literaturePeriod,f.errors["literaturePeriod"],Modifier.focusRequester(second),ImeAction.Next,{third.requestFocus()}){vm.change{s->s.copy(literaturePeriod=it,errors=s.errors-"literaturePeriod")}}
+                            }
+                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                                SpineInput("حرف مؤلف",f.authorLetter,null,Modifier.weight(1f).focusRequester(third),ImeAction.Next,{fourth.requestFocus()},1){vm.change{s->s.copy(authorLetter=it.take(1))}}
+                                SpineInput("عدد مؤلف",f.authorNumber,f.errors["authorNumber"],Modifier.weight(1.35f).focusRequester(fourth),ImeAction.Next,{fifth.requestFocus()}){vm.change{s->s.copy(authorNumber=it,errors=s.errors-"authorNumber")}}
+                            }
+                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                                SpineInput("نشانه اثر",f.workMark,null,Modifier.weight(1f).focusRequester(fifth),ImeAction.Next,{sixth.requestFocus()},1){vm.change{s->s.copy(workMark=it.take(1))}}
+                                if(f.section==BookSection.LITERATURE) SpineInput("حرف عنوان",f.titleLetter,null,Modifier.weight(1f).focusRequester(sixth),ImeAction.Next,{},1){vm.change{s->s.copy(titleLetter=it.take(1))}}
+                                else SpineInput("شماره ثبت",f.registration,f.errors["registrationNumber"],Modifier.weight(1.65f).focusRequester(sixth),ImeAction.Done,{}){vm.change{s->s.copy(registration=it,errors=s.errors-"registrationNumber")}}
+                            }
+                            if(f.section==BookSection.LITERATURE) SpineInput("شماره ثبت",f.registration,f.errors["registrationNumber"],Modifier.fillMaxWidth(),ImeAction.Done,{}){vm.change{s->s.copy(registration=it,errors=s.errors-"registrationNumber")}}
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(label.ifBlank{"—"},color=Color.White,fontSize=21.sp,lineHeight=26.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                    Spacer(Modifier.height(8.dp));Box(Modifier.width(54.dp).height(4.dp).background(DeweyYellow,androidx.compose.foundation.shape.CircleShape))
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun SpineInput(label:String,value:String,error:String?,modifier:Modifier,imeAction:ImeAction,onNext:()->Unit,autoNextLength:Int?=null,onChange:(String)->Unit){
+    Column(modifier){
+        OutlinedTextField(value,{v->onChange(v);if(autoNextLength!=null&&v.length>=autoNextLength)onNext()},label={Text(label,fontSize=10.sp,maxLines=1)},singleLine=true,isError=error!=null,textStyle=MaterialTheme.typography.bodyLarge.copy(fontWeight=FontWeight.Bold),keyboardOptions=KeyboardOptions(imeAction=imeAction),keyboardActions=KeyboardActions(onNext={onNext()},onDone={onNext()}),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Color.White,unfocusedContainerColor=Color(0xFFF5F3EC),focusedBorderColor=DeweyTeal,unfocusedBorderColor=Color.Transparent),shape=androidx.compose.foundation.shape.RoundedCornerShape(9.dp),modifier=Modifier.fillMaxWidth().height(54.dp))
+        error?.let{Text(it,color=MaterialTheme.colorScheme.error,fontSize=9.sp,maxLines=1)}
+    }
 }
 
 @Composable private fun GeneralSpineFields(f:BookFormState,vm:BookViewModel){val d=remember{FocusRequester()};val l=remember{FocusRequester()};val n=remember{FocusRequester()};val m=remember{FocusRequester()};val r=remember{FocusRequester()};Column(verticalArrangement=Arrangement.spacedBy(9.dp)){Text("اجزای برچسب عطف",fontSize=19.sp,fontWeight=FontWeight.Black,color=DeweyTeal);Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){VoiceField("رده اصلی *",f.mainClass,f.errors["mainClass"],modifier=Modifier.weight(1f),imeAction=ImeAction.Next,onNext={d.requestFocus()},autoNextLength=3){vm.change{s->s.copy(mainClass=it.take(3),errors=s.errors-"mainClass")}};VoiceField("اعشار رده",f.classDecimal,f.errors["classDecimal"],modifier=Modifier.weight(1f).focusRequester(d),imeAction=ImeAction.Next,onNext={l.requestFocus()}){vm.change{s->s.copy(classDecimal=it,errors=s.errors-"classDecimal")}}};Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){VoiceField("حرف مؤلف",f.authorLetter,modifier=Modifier.weight(1f).focusRequester(l),imeAction=ImeAction.Next,onNext={n.requestFocus()},autoNextLength=1){vm.change{s->s.copy(authorLetter=it.take(1))}};VoiceField("عدد مؤلف",f.authorNumber,f.errors["authorNumber"],modifier=Modifier.weight(1f).focusRequester(n),imeAction=ImeAction.Next,onNext={m.requestFocus()}){vm.change{s->s.copy(authorNumber=it,errors=s.errors-"authorNumber")}}};Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){VoiceField("نشانه اثر",f.workMark,modifier=Modifier.weight(1f).focusRequester(m),imeAction=ImeAction.Next,onNext={r.requestFocus()},autoNextLength=1){vm.change{s->s.copy(workMark=it.take(1))}};VoiceField("شماره ثبت",f.registration,f.errors["registrationNumber"],modifier=Modifier.weight(1f).focusRequester(r),imeAction=ImeAction.Done){vm.change{s->s.copy(registration=it,errors=s.errors-"registrationNumber")}}}}}
