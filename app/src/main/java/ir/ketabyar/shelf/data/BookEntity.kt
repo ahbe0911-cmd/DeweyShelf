@@ -3,6 +3,7 @@ package ir.ketabyar.shelf.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 import ir.ketabyar.shelf.core.BookSection
 
 @Entity(tableName = "books", indices = [Index(value = ["registrationNumber"], unique = true)])
@@ -31,6 +32,7 @@ data class BookEntity(
     val shelfName: String = "",
     val rowNumber: Int? = null,
     val needsReview: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val shelved: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
@@ -43,4 +45,3 @@ data class AuditEntity(
     val snapshot: String,
     val timestamp: Long = System.currentTimeMillis()
 )
-
