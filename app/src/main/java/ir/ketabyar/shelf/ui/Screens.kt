@@ -140,7 +140,10 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                                     SpineInput("رده اصلی",f.mainClass,f.errors["mainClass"],Modifier.focusRequester(first),ImeAction.Next,KeyboardType.Number,{second.requestFocus()},3){vm.change{s->s.copy(mainClass=it.take(3),errors=s.errors-"mainClass")}}
                                     SpineInput("اعشار رده",f.classDecimal,f.errors["classDecimal"],Modifier.focusRequester(second),ImeAction.Next,KeyboardType.Number,{third.requestFocus()}){vm.change{s->s.copy(classDecimal=it,errors=s.errors-"classDecimal")}}
                                 }else{
-                                    SpineInput("کد زبان",f.languageCode,f.errors["languageCode"],Modifier.focusRequester(first),ImeAction.Next,KeyboardType.Text,{second.requestFocus()}){vm.change{s->s.copy(languageCode=it,errors=s.errors-"languageCode")}}
+                                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Bottom){
+                                        SpineInput("شماره ادبیات",PersianNormalizer.digitsOnly(f.languageCode),f.errors["languageCode"],Modifier.weight(1.35f).focusRequester(first),ImeAction.Next,KeyboardType.Number,{second.requestFocus()},1){vm.change{s->s.copy(languageCode=PersianNormalizer.digitsOnly(it)+"فا",errors=s.errors-"languageCode")}}
+                                        FixedLanguageField(Modifier.weight(1f))
+                                    }
                                     SpineInput("دوره ادبی",f.literaturePeriod,f.errors["literaturePeriod"],Modifier.focusRequester(second),ImeAction.Next,KeyboardType.Number,{third.requestFocus()}){vm.change{s->s.copy(literaturePeriod=it,errors=s.errors-"literaturePeriod")}}
                                 }
                                 Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
@@ -176,6 +179,13 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                 }
             }
         }
+    }
+}
+
+@Composable private fun FixedLanguageField(modifier:Modifier=Modifier){
+    Column(modifier,verticalArrangement=Arrangement.spacedBy(3.dp)){
+        Row(Modifier.padding(horizontal=5.dp),verticalAlignment=Alignment.CenterVertically){Text("زبان ثابت",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Color(0xFF56514A));Spacer(Modifier.width(3.dp));Icon(Icons.Outlined.Lock,null,tint=DeweyTeal,modifier=Modifier.size(12.dp))}
+        Box(Modifier.fillMaxWidth().height(44.dp).background(Color(0xFFDFF1EE),androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),contentAlignment=Alignment.Center){Text("فا",color=DeweyTealDark,fontSize=18.sp,fontWeight=FontWeight.Black)}
     }
 }
 
