@@ -8,8 +8,8 @@ object BookValidator {
             if (main.length != 3 || main.toIntOrNull() !in 0..999) put("mainClass", "شماره اصلی باید دقیقاً سه رقم از 000 تا 999 باشد")
             if (code.classDecimal.isNotBlank() && PersianNormalizer.normalize(code.classDecimal).any { !it.isDigit() }) put("classDecimal", "اعشار را فقط با رقم و بدون ممیز وارد کنید")
         } else {
-            if (code.languageCode.isBlank()) put("languageCode", "کد زبان ادبی الزامی است")
-            if (code.literaturePeriod.isBlank()) put("literaturePeriod", "دوره یا بخش ادبی الزامی است")
+            if (PersianNormalizer.digitsOnly(code.languageCode).isBlank()) put("languageCode", "شماره ادبیات الزامی است")
+            if (code.literaturePeriod.isBlank() || PersianNormalizer.normalize(code.literaturePeriod).any { !it.isDigit() }) put("literaturePeriod", "دوره ادبی را فقط با عدد وارد کنید")
             if (!rules.literaturePatternConfirmed) put("literaturePattern", "الگوی ادبیات باید ابتدا توسط کتابدار ارشد تأیید شود")
         }
         if (code.authorNumber.isNotBlank() && PersianNormalizer.normalize(code.authorNumber).any { !it.isDigit() }) put("authorNumber", "عدد مؤلف فقط باید شامل رقم باشد")
