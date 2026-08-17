@@ -73,7 +73,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 }
 
 @Composable private fun LibraryHero(){ Column(Modifier.fillMaxWidth().padding(top=24.dp,bottom=18.dp),horizontalAlignment=Alignment.CenterHorizontally){
-    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("چیدمان‌یار دیویی",color=Color.White,fontSize=28.sp,fontWeight=FontWeight.Black);Text("کتاب درست، در جای درست",color=DeweyYellow,fontWeight=FontWeight.Bold)};Surface(color=Color.White.copy(.16f),shape=androidx.compose.foundation.shape.CircleShape){Icon(Icons.Outlined.LocalLibrary,null,tint=Color.White,modifier=Modifier.padding(12.dp).size(30.dp))}}
+    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("کتاب یار",color=Color.White,fontSize=28.sp,fontWeight=FontWeight.Black);Text("کتاب درست، در جای درست",color=DeweyYellow,fontWeight=FontWeight.Bold)};Surface(color=Color.White.copy(.16f),shape=androidx.compose.foundation.shape.CircleShape){Icon(Icons.Outlined.LocalLibrary,null,tint=Color.White,modifier=Modifier.padding(12.dp).size(30.dp))}}
     Canvas(Modifier.padding(top=10.dp).width(250.dp).height(118.dp)){val w=size.width;val h=size.height;drawRect(Color.White,Offset(w*.12f,h*.30f),Size(w*.76f,h*.55f));val roof=Path().apply{moveTo(w*.06f,h*.30f);lineTo(w*.5f,h*.02f);lineTo(w*.94f,h*.30f);close()};drawPath(roof,Color.White);drawRect(DeweyTeal,Offset(w*.43f,h*.48f),Size(w*.14f,h*.37f));listOf(.2f,.32f,.68f,.8f).forEach{x->drawRect(DeweyTeal,Offset(w*x,h*.42f),Size(w*.055f,h*.43f))};drawRect(DeweyYellow,Offset(w*.06f,h*.88f),Size(w*.88f,h*.06f))}
 } }
 
