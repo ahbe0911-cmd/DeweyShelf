@@ -93,12 +93,12 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { LabelPreview(LabelFormatter.format(f.code(), rules), f.section) }
+            if (f.section == BookSection.GENERAL) generalFields(f, vm) else literatureFields(f, vm)
             item { VoiceField("عنوان کتاب *", f.title, f.errors["title"]) { vm.change { s -> s.copy(title = it, errors = s.errors - "title") } } }
             item { VoiceField("نام نویسنده", f.authorFirst) { vm.change { s -> s.copy(authorFirst = it) } } }
             item { VoiceField("نام خانوادگی نویسنده", f.authorLast) { vm.change { s -> s.copy(authorLast = it) } } }
             item { VoiceField("موضوع کتاب", f.subject) { vm.change { s -> s.copy(subject = it) } } }
             item { VoiceField("شماره ثبت کتابخانه *", f.registration, f.errors["registrationNumber"]) { vm.change { s -> s.copy(registration = it, errors = s.errors - "registrationNumber") } } }
-            if (f.section == BookSection.GENERAL) generalFields(f, vm) else literatureFields(f, vm)
             item { VoiceField("جلد", f.volume) { vm.change { s -> s.copy(volume = it) } } }
             item { VoiceField("نسخه", f.edition) { vm.change { s -> s.copy(edition = it) } } }
             item { VoiceField("سال انتشار", f.year, f.errors["year"]) { vm.change { s -> s.copy(year = it, errors = s.errors - "year") } } }
