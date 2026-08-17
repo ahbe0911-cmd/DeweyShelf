@@ -14,7 +14,7 @@ data class BookFormState(
     val editingId: Long? = null,
     val section: BookSection = BookSection.GENERAL,
     val title: String = "", val authorFirst: String = "", val authorLast: String = "", val subject: String = "", val registration: String = "",
-    val mainClass: String = "", val classDecimal: String = "", val language: String = "", val languageCode: String = "8فا", val literaturePeriod: String = "32", val workType: String = "",
+    val mainClass: String = "", val classDecimal: String = "", val language: String = "", val languageCode: String = "فا", val literaturePeriod: String = "", val workType: String = "",
     val authorLetter: String = "", val authorNumber: String = "", val workMark: String = "", val titleLetter: String = "",
     val volume: String = "", val edition: String = "", val year: String = "", val notes: String = "", val shelf: String = "", val row: String = "",
     val errors: Map<String, String> = emptyMap(), val savedMessage: String? = null,
