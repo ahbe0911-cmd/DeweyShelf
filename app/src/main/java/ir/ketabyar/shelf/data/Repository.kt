@@ -30,4 +30,9 @@ class BookRepository @Inject constructor(private val db: AppDatabase) {
         db.bookDao().deleteAll()
         db.bookDao().audit(AuditEntity(bookId = 0, action = "DELETE_ALL", snapshot = "all books"))
     }
+    suspend fun setShelved(book: BookEntity, value: Boolean) = db.withTransaction {
+        val updated=book.copy(shelved=value,updatedAt=System.currentTimeMillis())
+        db.bookDao().audit(AuditEntity(bookId=book.id,action=if(value)"SHELVED" else "UNSHELVED",snapshot=updated.toString()))
+        db.bookDao().update(updated)
+    }
 }
