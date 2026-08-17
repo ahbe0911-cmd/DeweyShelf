@@ -32,6 +32,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
@@ -136,21 +137,21 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
                         Surface(color=Color(0xFFFFFDF7),shape=androidx.compose.foundation.shape.RoundedCornerShape(11.dp),shadowElevation=3.dp,modifier=Modifier.weight(1f)){
                             Column(Modifier.padding(9.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                                 if(f.section==BookSection.GENERAL){
-                                    SpineInput("رده اصلی",f.mainClass,f.errors["mainClass"],Modifier.focusRequester(first),ImeAction.Next,{second.requestFocus()},3){vm.change{s->s.copy(mainClass=it.take(3),errors=s.errors-"mainClass")}}
-                                    SpineInput("اعشار رده",f.classDecimal,f.errors["classDecimal"],Modifier.focusRequester(second),ImeAction.Next,{third.requestFocus()}){vm.change{s->s.copy(classDecimal=it,errors=s.errors-"classDecimal")}}
+                                    SpineInput("رده اصلی",f.mainClass,f.errors["mainClass"],Modifier.focusRequester(first),ImeAction.Next,KeyboardType.Number,{second.requestFocus()},3){vm.change{s->s.copy(mainClass=it.take(3),errors=s.errors-"mainClass")}}
+                                    SpineInput("اعشار رده",f.classDecimal,f.errors["classDecimal"],Modifier.focusRequester(second),ImeAction.Next,KeyboardType.Number,{third.requestFocus()}){vm.change{s->s.copy(classDecimal=it,errors=s.errors-"classDecimal")}}
                                 }else{
-                                    SpineInput("کد زبان",f.languageCode,f.errors["languageCode"],Modifier.focusRequester(first),ImeAction.Next,{second.requestFocus()}){vm.change{s->s.copy(languageCode=it,errors=s.errors-"languageCode")}}
-                                    SpineInput("دوره ادبی",f.literaturePeriod,f.errors["literaturePeriod"],Modifier.focusRequester(second),ImeAction.Next,{third.requestFocus()}){vm.change{s->s.copy(literaturePeriod=it,errors=s.errors-"literaturePeriod")}}
+                                    SpineInput("کد زبان",f.languageCode,f.errors["languageCode"],Modifier.focusRequester(first),ImeAction.Next,KeyboardType.Text,{second.requestFocus()}){vm.change{s->s.copy(languageCode=it,errors=s.errors-"languageCode")}}
+                                    SpineInput("دوره ادبی",f.literaturePeriod,f.errors["literaturePeriod"],Modifier.focusRequester(second),ImeAction.Next,KeyboardType.Number,{third.requestFocus()}){vm.change{s->s.copy(literaturePeriod=it,errors=s.errors-"literaturePeriod")}}
                                 }
                                 Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                                    SpineInput("عدد مؤلف",f.authorNumber,f.errors["authorNumber"],Modifier.weight(1.3f).focusRequester(fourth),ImeAction.Next,{fifth.requestFocus()}){vm.change{s->s.copy(authorNumber=it,errors=s.errors-"authorNumber")}}
-                                    SpineInput("حرف مؤلف",f.authorLetter,null,Modifier.weight(1f).focusRequester(third),ImeAction.Next,{fourth.requestFocus()},1){vm.change{s->s.copy(authorLetter=it.take(1))}}
+                                    SpineInput("عدد مؤلف",f.authorNumber,f.errors["authorNumber"],Modifier.weight(1.3f).focusRequester(fourth),ImeAction.Next,KeyboardType.Number,{fifth.requestFocus()}){vm.change{s->s.copy(authorNumber=it,errors=s.errors-"authorNumber")}}
+                                    SpineInput("حرف مؤلف",f.authorLetter,null,Modifier.weight(1f).focusRequester(third),ImeAction.Next,KeyboardType.Text,{fourth.requestFocus()},1){vm.change{s->s.copy(authorLetter=it.take(1))}}
                                 }
                                 Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                                    SpineInput("شماره ثبت",f.registration,f.errors["registrationNumber"],Modifier.weight(1.55f).focusRequester(sixth),ImeAction.Done,{}){vm.change{s->s.copy(registration=it,errors=s.errors-"registrationNumber")}}
-                                    SpineInput("نشانه اثر",f.workMark,null,Modifier.weight(1f).focusRequester(fifth),ImeAction.Next,{sixth.requestFocus()},1){vm.change{s->s.copy(workMark=it.take(1))}}
+                                    SpineInput("شماره ثبت",f.registration,f.errors["registrationNumber"],Modifier.weight(1.55f).focusRequester(sixth),ImeAction.Done,KeyboardType.Number,{}){vm.change{s->s.copy(registration=it,errors=s.errors-"registrationNumber")}}
+                                    SpineInput("نشانه اثر",f.workMark,null,Modifier.weight(1f).focusRequester(fifth),ImeAction.Next,KeyboardType.Text,{sixth.requestFocus()},1){vm.change{s->s.copy(workMark=it.take(1))}}
                                 }
-                                if(f.section==BookSection.LITERATURE) SpineInput("حرف عنوان",f.titleLetter,null,Modifier.fillMaxWidth(),ImeAction.Done,{},1){vm.change{s->s.copy(titleLetter=it.take(1))}}
+                                if(f.section==BookSection.LITERATURE) SpineInput("حرف عنوان",f.titleLetter,null,Modifier.fillMaxWidth(),ImeAction.Done,KeyboardType.Text,{},1){vm.change{s->s.copy(titleLetter=it.take(1))}}
                             }
                         }
                         Surface(color=Color(0xFFFFFDF7),shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp),border=BorderStroke(1.dp,Color(0xFFD8D1C2)),shadowElevation=4.dp,modifier=Modifier.width(88.dp).heightIn(min=208.dp)){
@@ -178,7 +179,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     }
 }
 
-@Composable private fun SpineInput(label:String,value:String,error:String?,modifier:Modifier,imeAction:ImeAction,onNext:()->Unit,autoNextLength:Int?=null,onChange:(String)->Unit){
+@Composable private fun SpineInput(label:String,value:String,error:String?,modifier:Modifier,imeAction:ImeAction,keyboardType:KeyboardType,onNext:()->Unit,autoNextLength:Int?=null,onChange:(String)->Unit){
     Column(modifier,verticalArrangement=Arrangement.spacedBy(3.dp)){
         Text(label,fontSize=10.sp,fontWeight=FontWeight.Bold,color=if(error==null)Color(0xFF56514A) else MaterialTheme.colorScheme.error,maxLines=1,modifier=Modifier.padding(horizontal=5.dp))
         BasicTextField(
@@ -186,7 +187,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
             onValueChange={v->onChange(v);if(autoNextLength!=null&&v.length>=autoNextLength)onNext()},
             singleLine=true,
             textStyle=MaterialTheme.typography.bodyLarge.copy(color=Color(0xFF171717),fontSize=18.sp,lineHeight=22.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center),
-            keyboardOptions=KeyboardOptions(imeAction=imeAction),
+            keyboardOptions=KeyboardOptions(imeAction=imeAction,keyboardType=keyboardType),
             keyboardActions=KeyboardActions(onNext={onNext()},onDone={onNext()}),
             cursorBrush=SolidColor(DeweyTeal),
             modifier=Modifier.fillMaxWidth().height(44.dp).background(if(error==null)Color(0xFFF1EFE8) else Color(0xFFFFEDEA),androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).border(if(error==null)0.dp else 1.dp,MaterialTheme.colorScheme.error,androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal=8.dp,vertical=7.dp),
