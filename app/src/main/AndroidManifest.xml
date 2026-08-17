@@ -4,7 +4,9 @@
     <application
         android:name=".KetabYarApp"
         android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
         android:label="کتاب‌یار قفسه"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.KetabYar">
@@ -16,4 +18,3 @@
         </activity>
     </application>
 </manifest>
-
