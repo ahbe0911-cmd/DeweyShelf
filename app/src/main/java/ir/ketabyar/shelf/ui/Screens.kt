@@ -10,6 +10,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -17,6 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
@@ -40,18 +44,26 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 }
 
 @Composable private fun HomeScreen(onSection: (BookSection) -> Unit, onList: () -> Unit, onSettings: () -> Unit) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-        Column(Modifier.padding(padding).padding(24.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Spacer(Modifier.height(24.dp)); Text("کتاب‌یار قفسه", fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
-            Text("ثبت دقیق کتاب و تشخیص محل صحیح در قفسه", fontSize = 16.sp, color = Color.DarkGray)
-            SectionCard("کتاب‌های عمومی", "رده‌های 000 تا 999", Icons.Outlined.MenuBook, MaterialTheme.colorScheme.primary) { onSection(BookSection.GENERAL) }
-            SectionCard("کتاب‌های ادبیات", "فرم و ترتیب مستقل ادبیات", Icons.Outlined.AutoStories, MaterialTheme.colorScheme.secondary) { onSection(BookSection.LITERATURE) }
-            OutlinedButton(onClick = onList, modifier = Modifier.fillMaxWidth().height(58.dp)) { Icon(Icons.Outlined.ViewList, null); Spacer(Modifier.width(8.dp)); Text("نمای واقعی قفسه‌ها") }
-            TextButton(onClick = onSettings, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Settings, null); Spacer(Modifier.width(8.dp)); Text("تنظیمات قواعد کتابخانه") }
-            Spacer(Modifier.weight(1f)); Text("کاملاً آفلاین • بدون دوربین و OCR", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
+    Scaffold(containerColor = DeweyTeal) { padding -> Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+        LibraryHero()
+        Surface(color=Color(0xFFF4F8F7),shape=androidx.compose.foundation.shape.RoundedCornerShape(topStart=30.dp,topEnd=30.dp),modifier=Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) { Text("انتخاب بخش کتابخانه",fontSize=21.sp,fontWeight=FontWeight.Black,color=DeweyTealDark); Surface(color=DeweyYellow,shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp)){Text("آفلاین",Modifier.padding(horizontal=12.dp,vertical=5.dp),fontWeight=FontWeight.Bold,color=DeweyTealDark)} }
+                ShelfChoice("کتاب‌های عمومی","رده‌های عمومی دیویی",DeweyTeal,false){onSection(BookSection.GENERAL)}
+                ShelfChoice("کتاب‌های ادبیات","ساختار اختصاصی رده 800",Literature,true){onSection(BookSection.LITERATURE)}
+                Button(onClick=onList,colors=ButtonDefaults.buttonColors(containerColor=DeweyTealDark),modifier=Modifier.fillMaxWidth().height(58.dp)){Icon(Icons.Outlined.ViewList,null);Spacer(Modifier.width(8.dp));Text("مشاهده چیدمان واقعی قفسه",fontSize=16.sp,fontWeight=FontWeight.Bold)}
+                TextButton(onClick=onSettings,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Settings,null);Spacer(Modifier.width(8.dp));Text("تنظیم قواعد و الگوی برچسب")}
+            }
         }
-    }
+    } }
 }
+
+@Composable private fun LibraryHero(){ Column(Modifier.fillMaxWidth().padding(top=24.dp,bottom=18.dp),horizontalAlignment=Alignment.CenterHorizontally){
+    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("چیدمان‌یار دیویی",color=Color.White,fontSize=28.sp,fontWeight=FontWeight.Black);Text("کتاب درست، در جای درست",color=DeweyYellow,fontWeight=FontWeight.Bold)};Surface(color=Color.White.copy(.16f),shape=androidx.compose.foundation.shape.CircleShape){Icon(Icons.Outlined.LocalLibrary,null,tint=Color.White,modifier=Modifier.padding(12.dp).size(30.dp))}}
+    Canvas(Modifier.padding(top=10.dp).width(250.dp).height(118.dp)){val w=size.width;val h=size.height;drawRect(Color.White,Offset(w*.12f,h*.30f),Size(w*.76f,h*.55f));val roof=Path().apply{moveTo(w*.06f,h*.30f);lineTo(w*.5f,h*.02f);lineTo(w*.94f,h*.30f);close()};drawPath(roof,Color.White);drawRect(DeweyTeal,Offset(w*.43f,h*.48f),Size(w*.14f,h*.37f));listOf(.2f,.32f,.68f,.8f).forEach{x->drawRect(DeweyTeal,Offset(w*x,h*.42f),Size(w*.055f,h*.43f))};drawRect(DeweyYellow,Offset(w*.06f,h*.88f),Size(w*.88f,h*.06f))}
+} }
+
+@Composable private fun ShelfChoice(title:String,subtitle:String,color:Color,literature:Boolean,onClick:()->Unit){Card(onClick=onClick,colors=CardDefaults.cardColors(containerColor=Color.White),border=BorderStroke(1.dp,color.copy(.25f)),modifier=Modifier.fillMaxWidth().height(116.dp)){Row(Modifier.fillMaxSize().padding(14.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.width(82.dp).fillMaxHeight().background(color,androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Row(verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(3.dp)){repeat(4){i->Box(Modifier.width(if(i==1)14.dp else 11.dp).height((46+i*5).dp).background(if(i==2)DeweyYellow else Color.White,androidx.compose.foundation.shape.RoundedCornerShape(topStart=3.dp,topEnd=3.dp)))}}};Spacer(Modifier.width(16.dp));Column(Modifier.weight(1f)){Text(title,fontSize=21.sp,fontWeight=FontWeight.Black,color=color);Text(subtitle,color=Color.Gray,fontSize=13.sp);Spacer(Modifier.height(7.dp));Text(if(literature)"8فا /32 …" else "746/755 ر376ع",fontWeight=FontWeight.Bold,color=DeweyTealDark)};Icon(Icons.Outlined.ChevronLeft,null,tint=color)}}}
 
 @Composable private fun SettingsScreen(vm: BookViewModel, onBack: () -> Unit) {
     val rules by vm.rules.collectAsState()
@@ -73,14 +85,6 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     }
 }
 
-@Composable private fun SectionCard(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, onClick: () -> Unit) {
-    Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = color), modifier = Modifier.fillMaxWidth().height(132.dp)) {
-        Row(Modifier.fillMaxSize().padding(22.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(44.dp)); Spacer(Modifier.width(18.dp)); Column { Text(title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = Color.White.copy(.8f)) }
-        }
-    }
-}
-
 @Composable private fun AddBookScreen(vm: BookViewModel, onBack: () -> Unit) {
     val f by vm.form.collectAsState(); val rules by vm.rules.collectAsState()
     Scaffold(
@@ -89,14 +93,12 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { LabelPreview(LabelFormatter.format(f.code(), rules), f.section) }
-            item { SectionTitle("مشخصات پایه") }
             item { VoiceField("عنوان کتاب *", f.title, f.errors["title"]) { vm.change { s -> s.copy(title = it, errors = s.errors - "title") } } }
             item { VoiceField("نام نویسنده", f.authorFirst) { vm.change { s -> s.copy(authorFirst = it) } } }
             item { VoiceField("نام خانوادگی نویسنده", f.authorLast) { vm.change { s -> s.copy(authorLast = it) } } }
             item { VoiceField("موضوع کتاب", f.subject) { vm.change { s -> s.copy(subject = it) } } }
             item { VoiceField("شماره ثبت کتابخانه *", f.registration, f.errors["registrationNumber"]) { vm.change { s -> s.copy(registration = it, errors = s.errors - "registrationNumber") } } }
             if (f.section == BookSection.GENERAL) generalFields(f, vm) else literatureFields(f, vm)
-            item { SectionTitle("اطلاعات تکمیلی") }
             item { VoiceField("جلد", f.volume) { vm.change { s -> s.copy(volume = it) } } }
             item { VoiceField("نسخه", f.edition) { vm.change { s -> s.copy(edition = it) } } }
             item { VoiceField("سال انتشار", f.year, f.errors["year"]) { vm.change { s -> s.copy(year = it, errors = s.errors - "year") } } }
@@ -132,9 +134,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.literatureFields(f: B
 }
 
 @Composable private fun LabelPreview(label: String, section: BookSection) {
-    Card(colors = CardDefaults.cardColors(containerColor = if (section == BookSection.GENERAL) Color(0xFFE0F2F1) else Color(0xFFF5E7EF)), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("پیش‌نمایش زنده برچسب عطف", fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)); Surface(color = Color.White, shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, Color.LightGray)) { Text(label.ifBlank { "—" }, Modifier.padding(horizontal = 32.dp, vertical = 16.dp), fontSize = 25.sp, fontWeight = FontWeight.Black, lineHeight = 34.sp) } }
-    }
+    val accent=if(section==BookSection.GENERAL)DeweyTeal else Literature
+    Card(colors=CardDefaults.cardColors(containerColor=accent),modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp).fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("برچسب عطف",color=DeweyYellow,fontWeight=FontWeight.Black,fontSize=18.sp);Text("پیش‌نمایش زنده",color=Color.White.copy(.8f),fontSize=12.sp)};Surface(color=Paper,shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp),border=BorderStroke(3.dp,Color.White)){Text(label.ifBlank{"—"},Modifier.padding(horizontal=26.dp,vertical=13.dp),fontSize=22.sp,fontWeight=FontWeight.Black,lineHeight=29.sp,color=Color.Black)}}}
 }
 
 @Composable private fun VoiceField(label: String, value: String, error: String? = null, singleLine: Boolean = true, onChange: (String) -> Unit) {
