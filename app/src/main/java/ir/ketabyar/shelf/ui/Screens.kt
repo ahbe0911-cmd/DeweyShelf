@@ -27,7 +27,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
@@ -160,9 +162,20 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 }
 
 @Composable private fun SpineInput(label:String,value:String,error:String?,modifier:Modifier,imeAction:ImeAction,onNext:()->Unit,autoNextLength:Int?=null,onChange:(String)->Unit){
-    Column(modifier){
-        OutlinedTextField(value,{v->onChange(v);if(autoNextLength!=null&&v.length>=autoNextLength)onNext()},label={Text(label,fontSize=9.sp,maxLines=1)},singleLine=true,isError=error!=null,textStyle=MaterialTheme.typography.bodyMedium.copy(fontWeight=FontWeight.Bold),keyboardOptions=KeyboardOptions(imeAction=imeAction),keyboardActions=KeyboardActions(onNext={onNext()},onDone={onNext()}),colors=OutlinedTextFieldDefaults.colors(focusedContainerColor=Color.White,unfocusedContainerColor=Color(0xFFF5F3EC),focusedBorderColor=DeweyTeal,unfocusedBorderColor=Color.Transparent),shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp),modifier=Modifier.fillMaxWidth().height(48.dp))
-        error?.let{Text(it,color=MaterialTheme.colorScheme.error,fontSize=9.sp,maxLines=1)}
+    Column(modifier,verticalArrangement=Arrangement.spacedBy(3.dp)){
+        Text(label,fontSize=10.sp,fontWeight=FontWeight.Bold,color=if(error==null)Color(0xFF56514A) else MaterialTheme.colorScheme.error,maxLines=1,modifier=Modifier.padding(horizontal=5.dp))
+        BasicTextField(
+            value=value,
+            onValueChange={v->onChange(v);if(autoNextLength!=null&&v.length>=autoNextLength)onNext()},
+            singleLine=true,
+            textStyle=MaterialTheme.typography.bodyLarge.copy(color=Color(0xFF171717),fontSize=18.sp,lineHeight=22.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center),
+            keyboardOptions=KeyboardOptions(imeAction=imeAction),
+            keyboardActions=KeyboardActions(onNext={onNext()},onDone={onNext()}),
+            cursorBrush=SolidColor(DeweyTeal),
+            modifier=Modifier.fillMaxWidth().height(44.dp).background(if(error==null)Color(0xFFF1EFE8) else Color(0xFFFFEDEA),androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).border(if(error==null)0.dp else 1.dp,MaterialTheme.colorScheme.error,androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal=8.dp,vertical=7.dp),
+            decorationBox={inner->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){if(value.isBlank())Text("—",color=Color(0xFFAAA59B),fontSize=16.sp);inner()}}
+        )
+        error?.let{Text(it,color=MaterialTheme.colorScheme.error,fontSize=8.sp,maxLines=1)}
     }
 }
 
