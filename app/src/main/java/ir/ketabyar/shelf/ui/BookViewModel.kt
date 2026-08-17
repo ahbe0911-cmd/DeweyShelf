@@ -7,6 +7,7 @@ import ir.ketabyar.shelf.core.*
 import ir.ketabyar.shelf.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 import javax.inject.Inject
 
 data class BookFormState(
@@ -28,7 +29,14 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
     val rules = settings.rules.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryRules())
     val books = combine(repository.books, rules) { list, r -> list.sortedWith(compareByCode(r)) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun start(section: BookSection) { _form.value = BookFormState(section = section) }
+    fun start(section: BookSection) {
+        _form.value = BookFormState(section = section)
+        viewModelScope.launch {
+            var number: String
+            do { number = Random.nextInt(100000, 999999).toString() } while (repository.isDuplicate(number))
+            _form.update { it.copy(registration = number) }
+        }
+    }
     fun change(transform: (BookFormState) -> BookFormState) { _form.update(transform) }
     fun setSeparator(value: String) = viewModelScope.launch { settings.setSeparator(value) }
     fun confirmLiterature(value: Boolean) = viewModelScope.launch { settings.confirmLiterature(value) }
@@ -40,7 +48,7 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
         val ordered = books.value + f.toEntity()
         val sorted = ordered.sortedWith(compareByCode(rules.value)); val index = sorted.indexOfFirst { it.registrationNumber == f.registration }
         val prev = sorted.getOrNull(index - 1)?.title; val next = sorted.getOrNull(index + 1)?.title
-        _form.update { it.copy(savedMessage = "محل کتاب با موفقیت محاسبه شد", previousTitle = prev, nextTitle = next) }
+        _form.update { it.copy(savedMessage = "کتاب ذخیره شد", previousTitle = prev, nextTitle = next) }
     }
 
     private fun compareByCode(rules: LibraryRules) = Comparator<BookEntity> { a, b -> ShelfCodeComparator(rules).compare(a.code(), b.code()) }
