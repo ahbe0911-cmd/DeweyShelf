@@ -28,6 +28,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.*
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.window.Dialog
@@ -104,6 +107,7 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { EditableSpine(f, vm, rules) }
+            item { EntryHint(f.mainClass.isNotBlank()||f.authorNumber.isNotBlank()) }
             f.errors["literaturePattern"]?.let { item { AssistChip(onClick = {}, label = { Text(it) }, leadingIcon = { Icon(Icons.Outlined.Warning, null) }) } }
             item { Spacer(Modifier.height(10.dp)) }
         }
@@ -221,6 +225,18 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
 
 @Composable private fun SectionTitle(text: String) { Text(text, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
 
+@Composable private fun EntryHint(active:Boolean){
+    val motion=rememberInfiniteTransition(label="entry_hint")
+    val glow by motion.animateFloat(initialValue=.45f,targetValue=1f,animationSpec=infiniteRepeatable(tween(1100),RepeatMode.Reverse),label="glow")
+    Card(colors=CardDefaults.cardColors(containerColor=Color(0xFFE5F4F2)),modifier=Modifier.fillMaxWidth().animateContentSize()){
+        Row(Modifier.padding(horizontal=14.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically){
+            Surface(color=DeweyTeal.copy(alpha=glow),shape=androidx.compose.foundation.shape.CircleShape){Icon(if(active)Icons.Outlined.AutoStories else Icons.Outlined.TouchApp,null,tint=Color.White,modifier=Modifier.padding(9.dp).size(22.dp))}
+            Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(if(active)"عطف در حال ساخته‌شدن است" else "برای شروع، شماره رده را وارد کنید",fontWeight=FontWeight.Black,color=DeweyTealDark);Text("ورود اطلاعات  ←  بررسی عطف  ←  ذخیره کتاب",fontSize=11.sp,color=Color.Gray)}
+            Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){repeat(3){i->Box(Modifier.size(if(active&&i==1)8.dp else 6.dp).background(if(active)DeweyYellow else DeweyTeal.copy(.35f),androidx.compose.foundation.shape.CircleShape))}}
+        }
+    }
+}
+
 @Composable private fun BookListScreen(vm: BookViewModel, onBack: () -> Unit,onEdit:(BookEntity)->Unit) {
     val books by vm.books.collectAsState();var query by remember{mutableStateOf("")};var section by remember{mutableStateOf(BookSection.GENERAL)};var deleteTarget by remember{mutableStateOf<BookEntity?>(null)};var confirmDeleteAll by remember{mutableStateOf(false)}
     val shown=books.filter{it.section==section&&(query.isBlank()||listOf(it.registrationNumber,it.mainClass,it.classDecimal,it.languageCode,it.authorNumber).any{v->PersianNormalizer.normalize(v).contains(PersianNormalizer.normalize(query))})}
@@ -229,12 +245,14 @@ private enum class Screen { HOME, GENERAL, LITERATURE, LIST, SETTINGS }
             OutlinedTextField(query,{query=it},label={Text("جست‌وجوی شماره ثبت یا رده")},leadingIcon={Icon(Icons.Outlined.Search,null)},singleLine=true,modifier=Modifier.fillMaxWidth())
             Row(Modifier.padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(section==BookSection.GENERAL,{section=BookSection.GENERAL},{Text("عمومی")});FilterChip(section==BookSection.LITERATURE,{section=BookSection.LITERATURE},{Text("ادبیات")})}
             if(shown.isEmpty())Box(Modifier.fillMaxWidth().weight(1f),contentAlignment=Alignment.Center){Text("کتابی در این بخش ثبت نشده است",color=Color.Gray)}else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(7.dp),contentPadding=PaddingValues(bottom=14.dp)){items(shown,key={it.id}){b->
-                Card(Modifier.fillMaxWidth()){Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+                val actualPosition=books.filter{it.section==section}.indexOfFirst{it.id==b.id}+1
+                val cardColor by animateColorAsState(if(b.shelved)Color(0xFFDDF5E7) else Color.White,label="shelf_card")
+                Card(colors=CardDefaults.cardColors(containerColor=cardColor),modifier=Modifier.fillMaxWidth().animateContentSize()){Column{Row(Modifier.padding(horizontal=10.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
                     Surface(color=Color(0xFFE3F2F1),shape=androidx.compose.foundation.shape.RoundedCornerShape(8.dp)){Text(LabelFormatter.format(b.code(),LibraryRules()),Modifier.padding(horizontal=9.dp,vertical=7.dp),fontSize=13.sp,lineHeight=17.sp,fontWeight=FontWeight.Black,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
-                    Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("شماره ثبت ${b.registrationNumber}",fontWeight=FontWeight.Bold);Text(if(b.section==BookSection.GENERAL)"کتاب عمومی" else "کتاب ادبیات",fontSize=11.sp,color=Color.Gray)}
+                    Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("جایگاه صحیح: $actualPosition",fontWeight=FontWeight.Black,color=if(b.shelved)Color(0xFF147A4D) else DeweyTealDark);Text("شماره ثبت ${b.registrationNumber}",fontSize=11.sp,color=Color.Gray)}
                     IconButton(onClick={onEdit(b)}){Icon(Icons.Outlined.Edit,"ویرایش",tint=DeweyTeal)}
                     IconButton(onClick={deleteTarget=b}){Icon(Icons.Outlined.Delete,"حذف",tint=MaterialTheme.colorScheme.error)}
-                }}
+                };HorizontalDivider(color=if(b.shelved)Color(0xFFB7E5CA) else Color(0xFFE8ECEB));Row(Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){IconToggleButton(checked=b.shelved,onCheckedChange={vm.setShelved(b,it)}){Icon(if(b.shelved)Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,null,tint=if(b.shelved)Color(0xFF15915A) else Color.Gray)};Text(if(b.shelved)"در قفسه قرار گرفت" else "پس از قفسه‌گذاری تیک بزنید",fontSize=12.sp,fontWeight=if(b.shelved)FontWeight.Bold else FontWeight.Normal,color=if(b.shelved)Color(0xFF147A4D) else Color.Gray)}}}
             }}
         }
     }
