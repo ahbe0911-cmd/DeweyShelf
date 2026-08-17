@@ -16,7 +16,7 @@ interface BookDao {
     @Query("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 1") suspend fun lastAudit(): AuditEntity?
 }
 
-@Database(entities = [BookEntity::class, AuditEntity::class], version = 1, exportSchema = true)
+@Database(entities = [BookEntity::class, AuditEntity::class], version = 2, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() { abstract fun bookDao(): BookDao }
 
