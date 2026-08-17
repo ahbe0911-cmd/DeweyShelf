@@ -15,7 +15,8 @@ data class BookFormState(
     val mainClass: String = "", val classDecimal: String = "", val language: String = "", val languageCode: String = "8فا", val literaturePeriod: String = "32", val workType: String = "",
     val authorLetter: String = "", val authorNumber: String = "", val workMark: String = "", val titleLetter: String = "",
     val volume: String = "", val edition: String = "", val year: String = "", val notes: String = "", val shelf: String = "", val row: String = "",
-    val errors: Map<String, String> = emptyMap(), val savedMessage: String? = null
+    val errors: Map<String, String> = emptyMap(), val savedMessage: String? = null,
+    val previousTitle: String? = null, val nextTitle: String? = null
 ) {
     fun code() = ShelfCode(section, mainClass, classDecimal, languageCode, literaturePeriod, authorLetter, authorNumber, workMark, titleLetter, volume, edition, year)
 }
@@ -39,7 +40,7 @@ class BookViewModel @Inject constructor(private val repository: BookRepository, 
         val ordered = books.value + f.toEntity()
         val sorted = ordered.sortedWith(compareByCode(rules.value)); val index = sorted.indexOfFirst { it.registrationNumber == f.registration }
         val prev = sorted.getOrNull(index - 1)?.title; val next = sorted.getOrNull(index + 1)?.title
-        _form.update { it.copy(savedMessage = "ذخیره شد؛ بعد از ${prev ?: "ابتدای قفسه"} و قبل از ${next ?: "انتهای قفسه"}") }
+        _form.update { it.copy(savedMessage = "محل کتاب با موفقیت محاسبه شد", previousTitle = prev, nextTitle = next) }
     }
 
     private fun compareByCode(rules: LibraryRules) = Comparator<BookEntity> { a, b -> ShelfCodeComparator(rules).compare(a.code(), b.code()) }
